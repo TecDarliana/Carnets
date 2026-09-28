@@ -1,0 +1,55 @@
+:root {
+  --carnet-primario: #0d3b66;
+  --carnet-secundario: #1d7874;
+}
+
+body {
+  min-height: 100vh;
+}
+
+.carnet {
+  width: 100%;
+  max-width: 340px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, .15);
+}
+
+.carnet__cabecera {
+  background: linear-gradient(135deg, var(--carnet-primario), var(--carnet-secundario));
+  color: #fff;
+  padding: 1rem;
+  text-align: center;
+}
+
+.carnet__foto {
+  width: 110px;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  margin-top: -55px;
+  background: #e9ecef;
+}
+
+.carnet__cuerpo {
+  padding: 1rem 1.25rem 1.5rem;
+}
+
+.carnet__nombre {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--carnet-primario);
+}
+
+.tabla-responsive-card {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 575.98px) {
+  .oculto-movil {
+    display: none !important;
+  }
+}

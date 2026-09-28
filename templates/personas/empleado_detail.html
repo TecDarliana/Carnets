@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}{{ empleado.nombre_completo }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">{{ empleado.nombre_completo }}</h1>
+  <div class="d-flex gap-2">
+    <a href="{% url 'personas:editar' empleado.pk %}" class="btn btn-outline-secondary">
+      <i class="bi bi-pencil me-1"></i>Editar
+    </a>
+    <a href="{% url 'personas:lista' %}" class="btn btn-outline-secondary">Volver</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-12 col-md-4 col-lg-3">
+    <div class="card shadow-sm text-center">
+      <div class="card-body">
+        {% if empleado.foto %}
+          <img src="{{ empleado.foto.url }}" alt="{{ empleado.nombre_completo }}" class="rounded img-fluid mb-3" style="max-height:220px;object-fit:cover;">
+        {% else %}
+          <i class="bi bi-person-badge display-1 text-muted"></i>
+        {% endif %}
+        <div class="fw-bold">{{ empleado.nombre_completo }}</div>
+        <div class="text-muted small">{{ empleado.get_cargo_display }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-8 col-lg-9">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Documento</dt><dd class="col-sm-8">{{ empleado.numero_documento }}</dd>
+          <dt class="col-sm-4">Cargo</dt><dd class="col-sm-8">{{ empleado.get_cargo_display }}</dd>
+          <dt class="col-sm-4">Departamento</dt><dd class="col-sm-8">{{ empleado.get_departamento_display }}</dd>
+          <dt class="col-sm-4">Fecha de registro</dt><dd class="col-sm-8">{{ empleado.fecha_registro|date:'d/m/Y H:i' }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mt-4">
+      <div class="card-header fw-semibold">Carnets</div>
+      <ul class="list-group list-group-flush">
+        {% for carnet in empleado.carnets.all %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{% url 'carnets:detalle' carnet.pk %}">{{ carnet.numero }}</a>
+            <span class="badge text-bg-{% if carnet.esta_vigente %}success{% else %}warning{% endif %}">
+              {{ carnet.get_estado_display }}
+            </span>
+          </li>
+        {% empty %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span class="text-muted">Sin carnet generado.</span>
+            <a href="{% url 'carnets:crear' %}?empleado={{ empleado.pk }}" class="btn btn-sm btn-primary">Generar carnet</a>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

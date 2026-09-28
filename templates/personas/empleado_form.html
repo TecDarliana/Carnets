@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}{% if object %}Editar registro{% else %}Nuevo registro{% endif %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h3 mb-0">{% if object %}Editar Registro{% else %}Formulario de Registro{% endif %}</h1>
+      <a href="{% url 'personas:lista' %}" class="btn btn-outline-secondary">Volver</a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.numero_documento.id_for_label }}">Número de Documento *</label>
+              {{ form.numero_documento }}
+              {% for error in form.numero_documento.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.nombres.id_for_label }}">Nombre *</label>
+              {{ form.nombres }}
+              {% for error in form.nombres.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.apellidos.id_for_label }}">Apellido *</label>
+              {{ form.apellidos }}
+              {% for error in form.apellidos.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.cargo.id_for_label }}">Cargo *</label>
+              {{ form.cargo }}
+              {% for error in form.cargo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.departamento.id_for_label }}">Departamento *</label>
+              {{ form.departamento }}
+              {% for error in form.departamento.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <div class="col-12">
+              <label class="form-label" for="{{ form.foto.id_for_label }}">Foto (Requerido)</label>
+              {% if object.foto %}
+                <div class="mb-2">
+                  <img src="{{ object.foto.url }}" alt="Foto actual" class="rounded" style="height:90px;object-fit:cover;">
+                </div>
+              {% endif %}
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('{{ form.foto.id_for_label }}').click()">
+                  <i class="bi bi-folder2-open me-1"></i>Desde Archivo
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('foto-camara').click()">
+                  <i class="bi bi-camera me-1"></i>Desde Cámara
+                </button>
+              </div>
+              <div class="d-none">
+                {{ form.foto }}
+                <input type="file" id="foto-camara" accept="image/*" capture="environment"
+                       onchange="document.getElementById('{{ form.foto.id_for_label }}').files = this.files;">
+              </div>
+              <div id="foto-nombre" class="form-text"></div>
+              {% for error in form.foto.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="card-footer d-flex justify-content-end gap-2">
+          <a href="{% url 'personas:lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-primary">Guardar Registro</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const fotoInput = document.getElementById('{{ form.foto.id_for_label }}');
+  const nombre = document.getElementById('foto-nombre');
+  if (fotoInput) {
+    fotoInput.addEventListener('change', () => {
+      nombre.textContent = fotoInput.files.length ? fotoInput.files[0].name : '';
+    });
+  }
+</script>
+{% endblock %}

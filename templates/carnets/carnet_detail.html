@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %}Carnet {{ carnet.numero }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Carnet {{ carnet.numero }}</h1>
+  <div class="d-flex gap-2">
+    <a href="{% url 'carnets:imagen' carnet.pk %}" target="_blank" class="btn btn-outline-primary">
+      <i class="bi bi-box-arrow-up-right me-1"></i>Abrir
+    </a>
+    <a href="{% url 'carnets:imagen' carnet.pk %}?descargar=1" class="btn btn-outline-success">
+      <i class="bi bi-download me-1"></i>Descargar
+    </a>
+    <a href="{% url 'carnets:editar' carnet.pk %}" class="btn btn-outline-secondary">
+      <i class="bi bi-pencil me-1"></i>Editar
+    </a>
+    <a href="{% url 'carnets:lista' %}" class="btn btn-outline-secondary">Volver</a>
+  </div>
+</div>
+
+<div class="row g-4 justify-content-center">
+  <div class="col-12 col-sm-auto d-flex justify-content-center">
+    <div class="carnet">
+      <div class="carnet__cabecera">
+        <div class="fw-bold text-uppercase">{{ carnet.empleado.get_departamento_display }}</div>
+        <div class="small">{{ carnet.get_tipo_display }}</div>
+      </div>
+      <div class="text-center">
+        {% if carnet.empleado.foto %}
+          <img src="{{ carnet.empleado.foto.url }}" alt="{{ carnet.empleado.nombre_completo }}" class="carnet__foto">
+        {% else %}
+          <span class="carnet__foto d-inline-flex align-items-center justify-content-center">
+            <i class="bi bi-person fs-1 text-muted"></i>
+          </span>
+        {% endif %}
+      </div>
+      <div class="carnet__cuerpo text-center">
+        <div class="carnet__nombre">{{ carnet.empleado.nombre_completo }}</div>
+        <div class="text-muted small mb-2">{{ carnet.empleado.get_cargo_display }}</div>
+        <img src="{{ carnet.qr_imagen }}" alt="Código QR" width="110" height="110" class="mb-2">
+        <div class="small text-muted">Vence: {{ carnet.fecha_vencimiento|default:'Sin vencimiento' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Detalle</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-5">Empleado</dt><dd class="col-sm-7">
+            <a href="{% url 'personas:detalle' carnet.empleado.pk %}">{{ carnet.empleado.nombre_completo }}</a>
+          </dd>
+          <dt class="col-sm-5">Código único</dt><dd class="col-sm-7"><code>{{ carnet.codigo }}</code></dd>
+          <dt class="col-sm-5">Tipo</dt><dd class="col-sm-7">{{ carnet.get_tipo_display }}</dd>
+          <dt class="col-sm-5">Emisión</dt><dd class="col-sm-7">{{ carnet.fecha_emision }}</dd>
+          <dt class="col-sm-5">Vencimiento</dt><dd class="col-sm-7">{{ carnet.fecha_vencimiento|default:'—' }}</dd>
+          <dt class="col-sm-5">Estado</dt><dd class="col-sm-7">{{ carnet.get_estado_display }}</dd>
+          <dt class="col-sm-5">Vigente</dt><dd class="col-sm-7">
+            {% if carnet.esta_vigente %}<span class="text-success">Sí</span>{% else %}<span class="text-danger">No</span>{% endif %}
+          </dd>
+          <dt class="col-sm-5">Plantilla</dt><dd class="col-sm-7">{{ carnet.plantilla }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

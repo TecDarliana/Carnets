@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}{% if object %}Editar carnet{% else %}Generar carnet{% endif %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h3 mb-0">{% if object %}Editar carnet{% else %}Generar carnet{% endif %}</h1>
+      <a href="{% url 'carnets:lista' %}" class="btn btn-outline-secondary">Volver</a>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label" for="{{ form.empleado.id_for_label }}">Empleado *</label>
+              {{ form.empleado }}
+              {% for error in form.empleado.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.tipo.id_for_label }}">Tipo</label>
+              {{ form.tipo }}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.fecha_vencimiento.id_for_label }}">Fecha de vencimiento</label>
+              {{ form.fecha_vencimiento }}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="{{ form.observaciones.id_for_label }}">Observaciones</label>
+              {{ form.observaciones }}
+            </div>
+          </div>
+        </div>
+        <div class="card-footer d-flex justify-content-end gap-2">
+          <a href="{% url 'carnets:lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
