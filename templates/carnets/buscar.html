@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Generar carnet{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3"><i class="bi bi-person-vcard me-1"></i>Generar carnet por cédula</h1>
+
+<form method="get" class="mb-4">
+  <div class="input-group" style="max-width: 480px;">
+    <input type="text" name="q" value="{{ q }}" class="form-control"
+           placeholder="Cédula del funcionario" inputmode="numeric" autofocus>
+    <button class="btn btn-primary" type="submit">
+      <i class="bi bi-search me-1"></i>Buscar
+    </button>
+  </div>
+</form>
+
+{% if error %}
+  <div class="alert alert-warning" style="max-width: 720px;">{{ error }}</div>
+{% endif %}
+
+{% if datos %}
+<div class="card shadow-sm" style="max-width: 720px;">
+  <div class="card-body">
+    <div class="row g-4">
+      <div class="col-auto text-center">
+        <img src="{{ foto_url }}" alt="Foto de {{ datos.nombre_completo }}"
+             class="rounded border"
+             style="width: 150px; height: 150px; object-fit: cover;"
+             onerror="this.replaceWith(Object.assign(document.createElement('div'),
+                      {className:'bg-secondary text-white rounded border d-flex align-items-center justify-content-center',
+                       style:'width:150px;height:150px;', textContent:'SIN FOTO'}))">
+      </div>
+      <div class="col">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Nombre</dt>
+          <dd class="col-sm-8">{{ datos.nombre_completo }}</dd>
+          <dt class="col-sm-4">Cédula</dt>
+          <dd class="col-sm-8">{{ datos.ci }}</dd>
+          <dt class="col-sm-4">Cargo</dt>
+          <dd class="col-sm-8">{{ datos.cargo|default:'—' }}</dd>
+          <dt class="col-sm-4">Departamento</dt>
+          <dd class="col-sm-8">{{ datos.departamento|default:'—' }}</dd>
+          {% if datos.tipo_sangre %}
+            <dt class="col-sm-4">Tipo de sangre</dt>
+            <dd class="col-sm-8">{{ datos.tipo_sangre }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer d-flex justify-content-end gap-2">
+    <a href="{% url 'carnets:buscar' %}" class="btn btn-outline-secondary">Otra búsqueda</a>
+    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal"
+            data-bs-target="#modalPreview">
+      <i class="bi bi-eye me-1"></i>Vista previa
+    </button>
+    <a href="{% url 'carnets:pdf' datos.ci %}?descargar=1" class="btn btn-primary">
+      <i class="bi bi-file-earmark-pdf me-1"></i>Descargar PDF
+    </a>
+  </div>
+</div>
+
+<div class="modal fade" id="modalPreview" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="bi bi-person-vcard me-1"></i>Carnet {{ datos.nombre_completo }} ({{ datos.ci }})</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body bg-secondary p-2" style="height: 78vh;">
+        <iframe id="previewFrame" title="Vista previa del carnet"
+                style="width:100%; height:100%; border:0; background:#fff;"></iframe>
+      </div>
+      <div class="modal-footer py-1">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+        <a href="{% url 'carnets:pdf' datos.ci %}?descargar=1" class="btn btn-primary btn-sm">
+          <i class="bi bi-download me-1"></i>Descargar
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const modalPreview = document.getElementById('modalPreview');
+  modalPreview.addEventListener('show.bs.modal', () => {
+    document.getElementById('previewFrame').src = "{% url 'carnets:pdf' datos.ci %}?vista=previa";
+  });
+  modalPreview.addEventListener('hidden.bs.modal', () => {
+    document.getElementById('previewFrame').src = 'about:blank';
+  });
+</script>
+{% endif %}
+{% endblock %}

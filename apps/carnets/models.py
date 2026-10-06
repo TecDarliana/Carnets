@@ -3,6 +3,7 @@ import uuid
 from io import BytesIO
 
 import qrcode
+from django.contrib.auth.models import User
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -70,3 +71,24 @@ class Carnet(models.Model):
 
     def get_absolute_url(self):
         return reverse('carnets:detalle', args=[self.pk])
+
+
+class HistorialCarnet(models.Model):
+    """Registro de cada carnet PDF generado por cédula (anverso + dorso)."""
+
+    ci = models.CharField('cédula', max_length=20, db_index=True)
+    nombre = models.CharField('nombre', max_length=200)
+    cargo = models.CharField('cargo', max_length=150, blank=True)
+    departamento = models.CharField('departamento', max_length=150, blank=True)
+    usuario = models.ForeignKey(
+        User, verbose_name='usuario', on_delete=models.SET_NULL, null=True, blank=True,
+    )
+    creado = models.DateTimeField('fecha de generación', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'carnet generado'
+        verbose_name_plural = 'historial de carnets generados'
+        ordering = ['-creado']
+
+    def __str__(self):
+        return f'{self.ci} - {self.nombre} ({self.creado:%d/%m/%Y %H:%M})'

@@ -23,6 +23,8 @@
         {% if user.is_authenticated %}
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             <li class="nav-item"><a class="nav-link" href="{% url 'carnets:lista' %}">Carnets</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'carnets:buscar' %}">Generar carnet</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'carnets:historial' %}">Historial</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'personas:lista' %}">Empleados</a></li>
           </ul>
           <ul class="navbar-nav">

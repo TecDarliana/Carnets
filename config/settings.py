@@ -10,10 +10,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -83,6 +88,26 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Base de datos externa de SIGLAS (solo lectura, se usa con psycopg2 directo,
+# no se registra en DATABASES para que `manage.py migrate` no la toque).
+# La contraseña se lee de variables de entorno / .env (SIGLAS_DB_PASSWORD).
+SIGLAS_DB = {
+    'host': os.environ.get('SIGLAS_DB_HOST', '172.17.0.181'),
+    'port': os.environ.get('SIGLAS_DB_PORT', '5432'),
+    'dbname': os.environ.get('SIGLAS_DB_NAME', 'siglas'),
+    'user': os.environ.get('SIGLAS_DB_USER', 'siglas'),
+    'password': os.environ.get('SIGLAS_DB_PASSWORD', ''),
+    'connect_timeout': 5,
+}
+
+# URL de la foto del funcionario en la web de SIGLAS ({ci} = cédula)
+SIGLAS_FOTO_URL = os.environ.get(
+    'SIGLAS_FOTO_URL', 'http://172.17.0.180/images/fotos_personal/{ci}.jpg'
+)
+
+# Plantilla del carnet (PowerPoint) que se rellena y convierte a PDF
+PLANTILLA_CARNET = BASE_DIR / 'credencialfundacion.pptx'
 
 
 # Password validation

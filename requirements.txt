@@ -3,6 +3,9 @@ charset-normalizer==3.5.1
 Django==5.1.15
 django-widget-tweaks==1.5.1
 pillow==12.3.0
+psycopg2-binary==2.9.13
+python-dotenv==1.2.4
 qrcode==8.2
 reportlab==5.0.1
+requests==2.34.2
 sqlparse==0.6.0
