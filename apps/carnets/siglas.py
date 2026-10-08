@@ -275,7 +275,8 @@ def _partir_lineas(texto, fuente, tam, ancho):
 
 
 def _dibujar_texto(c, texto, caja_pt, cfg, alto_pagina):
-    x, y_top, w, h = caja_pt
+    x, y_bottom, w, h = caja_pt
+    y_top = y_bottom + h
     m = cfg['margenes']
     l, r, t, b = (m['l'] / EMU_POR_PT, m['r'] / EMU_POR_PT,
                   m['t'] / EMU_POR_PT, m['b'] / EMU_POR_PT)

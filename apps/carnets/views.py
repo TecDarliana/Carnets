@@ -346,7 +346,8 @@ def credencial_crear(request):
             'cargo': datos['cargo'],
         }
 
-    form = CredencialForm(request.POST or None, initial=inicial)
+    form = CredencialForm(request.POST or None, request.FILES or None,
+                          initial=inicial)
     ci_origen = datos['ci'] if datos else ''
 
     if request.method == 'POST' and form.is_valid():
