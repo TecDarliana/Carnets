@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}Credenciales / carnets{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0"><i class="bi bi-person-badge me-1"></i>Credenciales / carnets</h1>
+  {% if perms.carnets.crear_carnet_manual or perms.carnets.editar_imprimir_carnets %}
+  <div class="d-flex gap-2">
+    <a href="{% url 'carnets:credencial_crear' %}?origen=siglas" class="btn btn-outline-primary">
+      <i class="bi bi-database me-1"></i>Desde base de datos
+    </a>
+    <a href="{% url 'carnets:credencial_crear' %}?origen=manual" class="btn btn-primary">
+      <i class="bi bi-person-plus me-1"></i>Nuevo manual
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<form method="get" class="mb-3">
+  <div class="input-group" style="max-width: 480px;">
+    <input type="text" name="q" value="{{ q }}" class="form-control"
+           placeholder="Buscar por nombre, cédula o cargo">
+    <button class="btn btn-outline-secondary" type="submit">
+      <i class="bi bi-search"></i>
+    </button>
+  </div>
+</form>
+
+<div class="row g-3">
+  {% for credencial in credenciales %}
+    <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body d-flex flex-column">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            {% if credencial.foto %}
+              <img src="{{ credencial.foto.url }}" alt="Foto de {{ credencial.nombre_completo }}"
+                   class="rounded-circle border" style="width:64px;height:64px;object-fit:cover;">
+            {% else %}
+              <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center"
+                   style="width:64px;height:64px;">
+                <i class="bi bi-person"></i>
+              </div>
+            {% endif %}
+            <div class="small">
+              <div class="fw-semibold">{{ credencial.nombre_completo }}</div>
+              <div class="text-muted">{{ credencial.documento|default:'sin documento' }}</div>
+            </div>
+          </div>
+          <div class="small text-muted mb-1">{{ credencial.cargo|default:'—' }}</div>
+          <span class="badge text-bg-{% if credencial.origen == 'siglas' %}info{% else %}warning{% endif %} align-self-start">
+            {{ credencial.get_origen_display }}
+          </span>
+          <div class="mt-auto d-flex gap-2 mt-3">
+            <a href="{% url 'carnets:credencial_editar' credencial.pk %}"
+               class="btn btn-sm btn-primary flex-fill">
+              <i class="bi bi-pencil me-1"></i>Editar / imprimir
+            </a>
+            <a href="{% url 'carnets:credencial_digital' credencial.codigo %}"
+               class="btn btn-sm btn-outline-secondary" target="_blank" title="Página digital">
+              <i class="bi bi-qr-code"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="col-12">
+      <div class="alert alert-info">No hay carnets registrados.</div>
+    </div>
+  {% endfor %}
+</div>
+
+{% if is_paginated %}
+  <nav class="mt-3">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a></li>
+      {% endif %}
+      <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Crear carnet{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3"><i class="bi bi-person-plus me-1"></i>Crear carnet</h1>
+
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item">
+    <a class="nav-link {% if origen != 'manual' %}active{% endif %}"
+       href="{% url 'carnets:credencial_crear' %}?origen=siglas">
+      <i class="bi bi-database me-1"></i>Desde base de datos
+    </a>
+  </li>
+  {% if perms.carnets.crear_carnet_manual %}
+  <li class="nav-item">
+    <a class="nav-link {% if origen == 'manual' %}active{% endif %}"
+       href="{% url 'carnets:credencial_crear' %}?origen=manual">
+      <i class="bi bi-person-lines-fill me-1"></i>Manual (sin base de datos)
+    </a>
+  </li>
+  {% endif %}
+</ul>
+
+{% if origen != 'manual' %}
+  <form method="get" class="mb-4">
+    <input type="hidden" name="origen" value="siglas">
+    <div class="input-group" style="max-width: 480px;">
+      <input type="text" name="q" value="{{ q }}" class="form-control"
+             placeholder="Cédula del funcionario" inputmode="numeric" autofocus>
+      <button class="btn btn-primary" type="submit">
+        <i class="bi bi-search me-1"></i>Buscar
+      </button>
+    </div>
+  </form>
+
+  {% if error %}
+    <div class="alert alert-warning" style="max-width: 720px;">{{ error }}</div>
+  {% endif %}
+
+  {% if datos %}
+    <div class="alert alert-success" style="max-width: 720px;">
+      <i class="bi bi-check-circle me-1"></i>Datos cargados desde SIGLAS.
+      <strong>Puedes corregir cualquier campo antes de guardar e imprimir.</strong>
+    </div>
+  {% endif %}
+{% else %}
+  <div class="alert alert-info" style="max-width: 720px;">
+    Ingresando los datos manualmente (socio, contratista, visitante, etc.).
+    Todos los campos y la foto son editables antes de imprimir.
+  </div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" novalidate class="mt-3" style="max-width: 720px;">
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+  {% endif %}
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="row g-3">
+        {% for field in form %}
+          <div class="col-12 {% if field.name != 'foto' %}{% endif %}">
+            <label class="form-label" for="{{ field.id_for_label }}">
+              {{ field.label }}{% if field.field.required %} *{% endif %}
+            </label>
+            {{ field }}
+            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="card-footer d-flex justify-content-end gap-2">
+      <a href="{% url 'carnets:credencial_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-check-lg me-1"></i>Guardar y editar antes de imprimir
+      </button>
+    </div>
+  </div>
+</form>
+{% endblock %}

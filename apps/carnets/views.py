@@ -1,24 +1,46 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.core.exceptions import PermissionDenied
+from django.core.files.base import ContentFile
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.db.models import Q
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+from django.template.defaultfilters import filesizeformat
 
 from apps.personas.models import Empleado
 
 from . import siglas
-from .forms import CarnetForm
-from .models import Carnet, HistorialCarnet
+from .forms import CarnetForm, CredencialForm, PlantillaForm
+from .models import Carnet, Credencial, HistorialCarnet, Plantilla
 from .services import imagen_carnet_png
 
 
-class CarnetListView(LoginRequiredMixin, ListView):
+class PermisoCarnetMixin(PermissionRequiredMixin):
+    """Exige un permiso de `carnets` (los superusuarios pasan siempre).
+
+    Los anónimos son redirigidos al login; los autenticados sin permiso
+    reciben 403.
+    """
+    raise_exception = True
+
+    def get_permission_required(self):
+        return ('carnets.' + self.permiso,)
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            raise PermissionDenied
+        self.raise_exception = False
+        return super().handle_no_permission()
+
+
+class CarnetListView(LoginRequiredMixin, PermisoCarnetMixin, ListView):
     model = Carnet
+    permiso = 'ver_carnets'
     template_name = 'carnets/carnet_list.html'
     context_object_name = 'carnets'
     paginate_by = 12
@@ -27,14 +49,16 @@ class CarnetListView(LoginRequiredMixin, ListView):
         return super().get_queryset().select_related('empleado')
 
 
-class CarnetDetailView(LoginRequiredMixin, DetailView):
+class CarnetDetailView(LoginRequiredMixin, PermisoCarnetMixin, DetailView):
     model = Carnet
+    permiso = 'ver_carnets'
     template_name = 'carnets/carnet_detail.html'
     context_object_name = 'carnet'
 
 
-class CarnetCreateView(LoginRequiredMixin, CreateView):
+class CarnetCreateView(LoginRequiredMixin, PermisoCarnetMixin, CreateView):
     model = Carnet
+    permiso = 'editar_imprimir_carnets'
     form_class = CarnetForm
     template_name = 'carnets/carnet_form.html'
 
@@ -50,14 +74,16 @@ class CarnetCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class CarnetUpdateView(LoginRequiredMixin, UpdateView):
+class CarnetUpdateView(LoginRequiredMixin, PermisoCarnetMixin, UpdateView):
     model = Carnet
+    permiso = 'editar_imprimir_carnets'
     form_class = CarnetForm
     template_name = 'carnets/carnet_form.html'
 
 
-class CarnetDeleteView(LoginRequiredMixin, DeleteView):
+class CarnetDeleteView(LoginRequiredMixin, PermisoCarnetMixin, DeleteView):
     model = Carnet
+    permiso = 'editar_imprimir_carnets'
     template_name = 'carnets/carnet_confirm_delete.html'
     success_url = reverse_lazy('carnets:lista')
 
@@ -96,6 +122,8 @@ def generar_todos(request):
 @login_required
 def buscar(request):
     """Busca un funcionario en SIGLAS por cédula y ofrece el PDF del carnet."""
+    if not _permiso_requerido(request.user, 'ver_carnets'):
+        raise PermissionDenied
     q = request.GET.get('q', '').strip()
     datos = None
     error = None
@@ -124,9 +152,20 @@ def buscar(request):
 
 @login_required
 def carnet_pdf_siglas(request, ci):
-    """Genera y sirve el PDF del carnet para la cédula indicada."""
+    """Genera y sirve el PDF del carnet para la cédula indicada.
+
+    La vista previa (`?vista=previa`) solo requiere `ver_carnets`; descargar o
+    imprimir exige `editar_imprimir_carnets`.
+    """
     if not ci.isdigit():
         raise Http404
+    es_previa = bool(request.GET.get('vista'))
+    if es_previa:
+        if not _permiso_requerido(request.user, 'ver_carnets'):
+            raise PermissionDenied
+    elif not _permiso_requerido(request.user, 'editar_imprimir_carnets',
+                                'crear_carnet_manual'):
+        raise PermissionDenied
     datos, pdf = siglas.generar_pdf(ci)
     if pdf is None:
         raise Http404
@@ -144,8 +183,9 @@ def carnet_pdf_siglas(request, ci):
     return response
 
 
-class HistorialListView(LoginRequiredMixin, ListView):
+class HistorialListView(LoginRequiredMixin, PermisoCarnetMixin, ListView):
     model = HistorialCarnet
+    permiso = 'ver_carnets'
     template_name = 'carnets/historial.html'
     context_object_name = 'registros'
     paginate_by = 25
@@ -156,3 +196,268 @@ class HistorialListView(LoginRequiredMixin, ListView):
         if q:
             qs = qs.filter(Q(ci__icontains=q) | Q(nombre__icontains=q))
         return qs
+
+
+class PlantillaListView(LoginRequiredMixin, PermisoCarnetMixin, ListView):
+    model = Plantilla
+    permiso = 'ver_carnets'
+    template_name = 'carnets/plantilla_list.html'
+    context_object_name = 'plantillas'
+    paginate_by = 10
+
+    def get_queryset(self):
+        qs = super().get_queryset().order_by('-activa', 'nombre')
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(nombre__icontains=q)
+        return qs
+
+
+class PlantillaCreateView(LoginRequiredMixin, PermisoCarnetMixin, CreateView):
+    model = Plantilla
+    permiso = 'editar_imprimir_carnets'
+    form_class = PlantillaForm
+    template_name = 'carnets/plantilla_form.html'
+    success_url = reverse_lazy('carnets:plantilla_lista')
+
+    def form_valid(self, form):
+        # Si esta plantilla se marca como activa, desactivar las demás
+        if form.instance.activa:
+            Plantilla.objects.filter(activa=True).exclude(pk=form.instance.pk).update(activa=False)
+        return super().form_valid(form)
+
+
+class PlantillaUpdateView(LoginRequiredMixin, PermisoCarnetMixin, UpdateView):
+    model = Plantilla
+    permiso = 'editar_imprimir_carnets'
+    form_class = PlantillaForm
+    template_name = 'carnets/plantilla_form.html'
+    success_url = reverse_lazy('carnets:plantilla_lista')
+
+    def form_valid(self, form):
+        # Si esta plantilla se marca como activa, desactivar las demás
+        if form.instance.activa:
+            Plantilla.objects.filter(activa=True).exclude(pk=form.instance.pk).update(activa=False)
+        return super().form_valid(form)
+
+
+# ---------------------------------------------------------------------------
+# Credenciales: carnets editables, con origen manual o desde SIGLAS
+# ---------------------------------------------------------------------------
+
+def _permiso_requerido(user, *codenames):
+    """True si el usuario tiene alguno de los permisos indicados."""
+    if user.is_superuser:
+        return True
+    return any(user.has_perm('carnets.' + c) for c in codenames)
+
+
+def _foto_credentialial(credencial):
+    """Bytes de la foto de la credencial (o None si no hay)."""
+    if not credencial.foto:
+        return None
+    try:
+        with credencial.foto.open('rb') as fh:
+            return fh.read()
+    except Exception:
+        return None
+
+
+def _pdf_credencial(credencial, request=None, previa=False):
+    """Genera el PDF del carnet apuntando el QR a su página pública digital."""
+    campos = {
+        'nombre': credencial.nombre_completo,
+        'cargo': credencial.cargo,
+        'documento': credencial.documento,
+    }
+    plantilla = Plantilla.objects.filter(activa=True).exclude(
+        archivo='',
+    ).order_by('-id').first()
+    if plantilla:
+        campos.setdefault('razon_social', plantilla.razon_social)
+        campos.setdefault('telefono', plantilla.telefono)
+        campos.setdefault('correo', plantilla.correo)
+
+    qr_texto = None
+    if request is not None and credencial.pk:
+        qr_texto = request.build_absolute_uri(
+            reverse('carnets:credencial_digital', args=[credencial.codigo]))
+
+    return siglas.render_pdf(
+        campos,
+        foto=_foto_credentialial(credencial),
+        qr_texto=qr_texto,
+        titulo='Carnet %s - %s' % (credencial.documento or '—',
+                                   credencial.nombre_completo),
+    )
+
+
+class CredencialListView(LoginRequiredMixin, PermisoCarnetMixin, ListView):
+    model = Credencial
+    permiso = 'ver_carnets'
+    template_name = 'carnets/credencial_list.html'
+    context_object_name = 'credenciales'
+    paginate_by = 12
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(Q(nombre_completo__icontains=q) |
+                           Q(documento__icontains=q) |
+                           Q(cargo__icontains=q))
+        return qs
+
+
+def credencial_crear(request):
+    """Crea un carnet desde SIGLAS (cédula) o con datos manuales."""
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL)
+    if not _permiso_requerido(request.user, 'crear_carnet_manual',
+                              'editar_imprimir_carnets'):
+        raise PermissionDenied
+
+    origen = request.GET.get('origen', 'siglas').lower()
+    q = request.GET.get('q', '').strip()
+    datos = None
+    error = None
+    foto_url = None
+
+    if q and origen == 'siglas':
+        ci = ''.join(ch for ch in q if ch.isdigit())
+        if not ci:
+            error = 'La cédula debe contener solo números.'
+        else:
+            try:
+                datos = siglas.buscar_funcionario(ci)
+            except Exception:
+                error = 'No se pudo consultar la base de datos de SIGLAS.'
+            else:
+                if datos is None:
+                    error = f'No se encontró ningún funcionario con cédula {ci}.'
+                else:
+                    foto_url = settings.SIGLAS_FOTO_URL.format(ci=datos['ci'])
+
+    inicial = {}
+    if datos:
+        inicial = {
+            'nombre_completo': datos['nombre_completo'],
+            'documento': datos['ci'],
+            'cargo': datos['cargo'],
+        }
+
+    form = CredencialForm(request.POST or None, initial=inicial)
+    ci_origen = datos['ci'] if datos else ''
+
+    if request.method == 'POST' and form.is_valid():
+        # Cédula de origen: si el usuario no cambió el documento, se conserva
+        # el de SIGLAS para poder descargar la foto si no se subió otra.
+        doc = form.cleaned_data['documento']
+        origen_final = 'manual'
+        origen_ci = ''
+        if doc:
+            try:
+                if siglas.buscar_funcionario(doc) is not None:
+                    origen_final = 'siglas'
+                    origen_ci = doc
+            except Exception:
+                pass
+
+        credencial = form.save(commit=False)
+        credencial.origen = origen_final
+        credencial.ci_origen = origen_ci
+        credencial.creado_por = request.user
+        credencial.save()
+
+        if not credencial.foto and origen_ci:
+            foto_bytes = siglas.descargar_foto(origen_ci)
+            if foto_bytes:
+                credencial.foto.save(
+                    f'{origen_ci}.jpg', ContentFile(foto_bytes), save=True)
+
+        messages.success(request,
+                         f'Carnet de {credencial.nombre_completo} creado. '
+                         'Puedes editar la información antes de imprimirlo.')
+        return redirect('carnets:credencial_editar', pk=credencial.pk)
+
+    return render(request, 'carnets/credencial_form.html', {
+        'form': form,
+        'origen': origen,
+        'q': q,
+        'datos': datos,
+        'error': error,
+        'foto_url': foto_url,
+        'ci_origen': ci_origen,
+    })
+
+
+@require_POST
+def credencial_eliminar(request, pk):
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL)
+    if not _permiso_requerido(request.user, 'editar_imprimir_carnets'):
+        raise PermissionDenied
+    credencial = get_object_or_404(Credencial, pk=pk)
+    credencial.delete()
+    messages.success(request, 'Carnet eliminado.')
+    return redirect('carnets:credencial_lista')
+
+
+def credencial_editar(request, pk):
+    """Edita los datos del carnet antes de imprimirlo y ofrece la vista previa."""
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL)
+    if not _permiso_requerido(request.user, 'editar_imprimir_carnets',
+                              'crear_carnet_manual'):
+        raise PermissionDenied
+    credencial = get_object_or_404(Credencial, pk=pk)
+    form = CredencialForm(request.POST or None, request.FILES or None,
+                          instance=credencial)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Datos actualizados.')
+        return redirect('carnets:credencial_editar', pk=credencial.pk)
+
+    return render(request, 'carnets/credencial_editar.html', {
+        'credencial': credencial,
+        'form': form,
+        'pdf_url': reverse('carnets:credencial_pdf', args=[credencial.pk]),
+        'digital_url': reverse('carnets:credencial_digital', args=[credencial.codigo]),
+    })
+
+
+def credencial_pdf(request, pk):
+    """Sirve el PDF del carnet (anverso + dorso) con QR a la página digital."""
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL)
+    if not _permiso_requerido(request.user, 'editar_imprimir_carnets',
+                              'crear_carnet_manual'):
+        raise PermissionDenied
+    credencial = get_object_or_404(Credencial, pk=pk)
+    pdf = _pdf_credencial(credencial, request=request)
+
+    previa = bool(request.GET.get('vista')) or bool(request.GET.get('previa'))
+    if not previa:
+        HistorialCarnet.objects.create(
+            ci=credencial.documento or '—',
+            nombre=credencial.nombre_completo,
+            cargo=credencial.cargo,
+            departamento='Credencial',
+            usuario=request.user,
+        )
+
+    response = HttpResponse(pdf, content_type='application/pdf')
+    modo = 'attachment' if request.GET.get('descargar') else 'inline'
+    response['Content-Disposition'] = (
+        f'{modo}; filename="carnet_{credencial.documento or credencial.pk}.pdf"')
+    return response
+
+
+def credencial_digital(request, codigo):
+    """Página pública (sin login) a la que apunta el QR del carnet."""
+    credencial = get_object_or_404(Credencial, codigo=codigo)
+    plantilla = Plantilla.objects.filter(activa=True).order_by('-id').first()
+    return render(request, 'carnets/credencial_digital.html', {
+        'credencial': credencial,
+        'plantilla': plantilla,
+    })

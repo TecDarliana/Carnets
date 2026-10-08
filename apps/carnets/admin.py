@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Carnet, HistorialCarnet
+from .models import Carnet, Credencial, HistorialCarnet
 
 
 @admin.register(Carnet)
@@ -26,3 +26,13 @@ class HistorialCarnetAdmin(admin.ModelAdmin):
     list_filter = ('creado',)
     date_hierarchy = 'creado'
     readonly_fields = ('ci', 'nombre', 'cargo', 'departamento', 'usuario', 'creado')
+
+
+@admin.register(Credencial)
+class CredencialAdmin(admin.ModelAdmin):
+    list_display = ('nombre_completo', 'documento', 'cargo', 'origen',
+                    'creado_por', 'creado')
+    list_filter = ('origen', 'creado')
+    search_fields = ('nombre_completo', 'documento', 'cargo')
+    readonly_fields = ('origen', 'ci_origen', 'codigo', 'creado_por',
+                       'creado', 'actualizado')

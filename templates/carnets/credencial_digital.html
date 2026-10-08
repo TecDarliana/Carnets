@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Carnet digital - {{ credencial.nombre_completo }}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background: #f4f6f8; }
+    .carnet-card { max-width: 480px; margin: 2rem auto; border-radius: 1rem; overflow: hidden; }
+    .carnet-foto { width: 140px; height: 170px; object-fit: cover; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="carnet-card card shadow">
+      <div class="card-header text-center fw-bold">
+        {% if plantilla and plantilla.razon_social %}
+          {{ plantilla.razon_social }}
+        {% else %}
+          Carnet digital
+        {% endif %}
+      </div>
+      <div class="card-body text-center">
+        {% if credencial.foto %}
+          <img src="{{ credencial.foto.url }}" alt="Foto de {{ credencial.nombre_completo }}"
+               class="carnet-foto rounded border mb-3">
+        {% else %}
+          <div class="bg-secondary text-white rounded d-inline-flex align-items-center justify-content-center mb-3"
+               style="width:140px;height:170px;">
+            <i class="bi bi-person" style="font-size:3rem;"></i>
+          </div>
+        {% endif %}
+        <h1 class="h5 mb-1">{{ credencial.nombre_completo }}</h1>
+        <p class="text-muted mb-1">{{ credencial.cargo|default:'—' }}</p>
+        <p class="mb-1">
+          <span class="badge text-bg-primary">{{ credencial.documento|default:'sin documento' }}</span>
+        </p>
+        <p class="small text-muted mb-0">
+          Origen: {{ credencial.get_origen_display }}<br>
+          Emitido: {{ credencial.creado|date:"d/m/Y H:i" }}
+        </p>
+      </div>
+      <div class="card-footer text-center small text-muted">
+        {% if plantilla and plantilla.razon_social %}{{ plantilla.razon_social }}{% endif %}
+        {% if plantilla and plantilla.telefono %} &middot; {{ plantilla.telefono }}{% endif %}
+        {% if plantilla and plantilla.correo %} &middot; {{ plantilla.correo }}{% endif %}
+      </div>
+    </div>
+    <p class="text-center small text-muted">Sistema de generación de carnets</p>
+  </div>
+</body>
+</html>

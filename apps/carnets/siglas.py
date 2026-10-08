@@ -185,10 +185,9 @@ def _margenes_de(body):
     return {'l': val('lIns'), 'r': val('rIns'), 't': val('tIns'), 'b': val('bIns')}
 
 
-@lru_cache(maxsize=1)
-def _cargar_plantilla():
+@lru_cache(maxsize=4)
+def _cargar_plantilla(ruta):
     """Parsea el PPTX y devuelve tamaño, fondos, textos y imágenes por diapositiva."""
-    ruta = Path(settings.PLANTILLA_CARNET)
     with zipfile.ZipFile(ruta) as z:
         pres = ET.fromstring(z.read('ppt/presentation.xml'))
         sld = pres.find('p:sldSz', NS)
@@ -333,9 +332,9 @@ def _dibujar_pagina(c, diapositiva, alto_pagina, ancho_pagina, valores, fotos):
                        cfg, alto_pagina)
 
 
-def _qr_bytes(datos):
+def _qr_bytes(contenido):
     qr = qrcode.QRCode(box_size=8, border=2)
-    qr.add_data('CARNET\nCI: %s\n%s' % (datos['ci'], datos['nombre_completo']))
+    qr.add_data(contenido)
     qr.make(fit=True)
     img = qr.make_image(fill_color='black', back_color='white').convert('RGB')
     buf = io.BytesIO()
@@ -344,28 +343,58 @@ def _qr_bytes(datos):
     return buf
 
 
-def generar_pdf(ci):
-    """Devuelve (datos, pdf_bytes). datos es None si la cédula no existe."""
-    datos = buscar_funcionario(ci)
-    if datos is None:
-        return None, None
+def _ruta_plantilla_activa():
+    """Devuelve la ruta del PPTX activo (si existe) o la plantilla por defecto."""
+    try:
+        from .models import Plantilla
+        plantilla = Plantilla.objects.filter(
+            activa=True, archivo__isnull=False,
+        ).exclude(archivo='').order_by('-id').first()
+        if plantilla:
+            ruta = plantilla.archivo.path
+            if Path(ruta).exists():
+                return Path(ruta)
+    except Exception:
+        pass
+    return Path(settings.PLANTILLA_CARNET)
 
-    foto = descargar_foto(ci)
-    img = _foto_cuadrada(foto) if foto else _foto_placeholder(ci)
 
+def render_pdf(campos, foto=None, qr_texto=None, plantilla_ruta=None, titulo=None):
+    """Genera el PDF del carnet (anverso + dorso) a partir de `campos`.
+
+    campos: dict con claves 'nombre', 'cargo', 'documento' (y opcionalmente
+    'razon_social', 'telefono', 'correo' provenientes de la plantilla activa).
+    foto: bytes (JPEG/PNG) o None → se usa el placeholder "SIN FOTO".
+    qr_texto: contenido del código QR. Si es None se usa el formato histórico.
+    """
     _registrar_fuentes()
-    plantilla = _cargar_plantilla()
+    ruta = Path(plantilla_ruta) if plantilla_ruta else _ruta_plantilla_activa()
+    plantilla = _cargar_plantilla(str(ruta))
     ancho = plantilla['ancho'] / EMU_POR_PT
     alto = plantilla['alto'] / EMU_POR_PT
+
+    ci = str(campos.get('documento', '')).strip()
+    if foto:
+        img = _foto_cuadrada(foto)
+    else:
+        img = _foto_placeholder(ci or '—')
+
     valores = {
-        'nombre': datos['nombre_completo'],
-        'cargo': datos['cargo'] or '—',
-        'documento': datos['ci'],
+        'nombre': campos.get('nombre') or '—',
+        'cargo': campos.get('cargo') or '—',
+        'documento': ci or '—',
+        'razon_social': campos.get('razon_social') or '',
+        'telefono': campos.get('telefono') or '',
+        'correo': campos.get('correo') or '',
     }
+
+    if qr_texto is None:
+        qr_texto = 'CARNET\nCI: %s\n%s' % (
+            ci, campos.get('nombre') or '')
 
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=(ancho, alto))
-    c.setTitle('Carnet %s - %s' % (datos['ci'], datos['nombre_completo']))
+    c.setTitle(titulo or 'Carnet %s - %s' % (ci, campos.get('nombre') or ''))
 
     diapos = plantilla['diapositivas']
     fotos_anverso = {'foto': img}
@@ -375,9 +404,26 @@ def generar_pdf(ci):
     fotos_dorso = {}
     for imagin in diapos[1]['imagenes']:
         if imagin['marca'] in ('code_qr', 'qr'):
-            fotos_dorso[imagin['marca']] = _qr_bytes(datos)
+            fotos_dorso[imagin['marca']] = _qr_bytes(qr_texto)
     _dibujar_pagina(c, diapos[1], alto, ancho, valores, fotos_dorso)
     c.showPage()
 
     c.save()
-    return datos, buf.getvalue()
+    return buf.getvalue()
+
+
+def generar_pdf(ci):
+    """Devuelve (datos, pdf_bytes). datos es None si la cédula no existe."""
+    datos = buscar_funcionario(ci)
+    if datos is None:
+        return None, None
+
+    foto = descargar_foto(ci)
+    campos = {
+        'nombre': datos['nombre_completo'],
+        'cargo': datos['cargo'] or '—',
+        'documento': datos['ci'],
+    }
+    pdf = render_pdf(campos, foto=foto,
+                     titulo='Carnet %s - %s' % (datos['ci'], datos['nombre_completo']))
+    return datos, pdf

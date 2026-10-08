@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}{% if object %}Editar plantilla{% else %}Nueva plantilla{% endif %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h3 mb-0">{% if object %}Editar plantilla{% else %}Nueva plantilla{% endif %}</h1>
+      <a href="{% url 'carnets:plantilla_lista' %}" class="btn btn-outline-secondary">Volver</a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label" for="{{ form.nombre.id_for_label }}">Nombre *</label>
+              {{ form.nombre }}
+              {% for error in form.nombre.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="{{ form.descripcion.id_for_label }}">Descripción</label>
+              {{ form.descripcion }}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="{{ form.razon_social.id_for_label }}">Razón social / nombre jurídico</label>
+              {{ form.razon_social }}
+              <small class="text-muted">Se muestra en el encabezado y pie del carnet digital si la plantilla lo usa.</small>
+            </div>
+            <div class="col-md-6 col-12">
+              <label class="form-label" for="{{ form.telefono.id_for_label }}">Teléfono</label>
+              {{ form.telefono }}
+            </div>
+            <div class="col-md-6 col-12">
+              <label class="form-label" for="{{ form.correo.id_for_label }}">Correo</label>
+              {{ form.correo }}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="{{ form.archivo.id_for_label }}">Archivo PPTX *</label>
+              {{ form.archivo }}
+              <small class="text-muted">Formato PPTX (PowerPoint). El archivo se guardará en <code>media/plantillas/</code>.
+                Para cambiar logos, encabezados o pie, edita el PPTX y súbelo aquí.</small>
+              {% for error in form.archivo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="{{ form.activa.id_for_label }}">Plantilla activa</label>
+              {{ form.activa }}
+              <small class="text-muted">Marca para que esta plantilla se use al generar carnets automáticamente.</small>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer d-flex justify-content-end gap-2">
+          <a href="{% url 'carnets:plantilla_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

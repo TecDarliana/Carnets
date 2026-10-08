@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Editar carnet - {{ credencial.nombre_completo }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">
+    <i class="bi bi-pencil-square me-1"></i>Editar carnet
+    <small class="text-muted fs-6">{{ credencial.get_origen_display }}</small>
+  </h1>
+  <a href="{% url 'carnets:credencial_lista' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Volver
+  </a>
+</div>
+
+<div class="row g-4">
+  <div class="col-12 col-lg-5">
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="card shadow-sm">
+        <div class="card-header">Datos del carnet (editables)</div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for field in form %}
+              <div class="col-12">
+                <label class="form-label" for="{{ field.id_for_label }}">
+                  {{ field.label }}{% if field.field.required %} *{% endif %}
+                </label>
+                {{ field }}
+                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+          {% if credencial.foto %}
+            <div class="form-text">Foto actual: {{ credencial.foto.name }}
+              &mdash; marca la casilla para quitarla.</div>
+          {% endif %}
+        </div>
+        <div class="card-footer d-flex justify-content-end gap-2">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Guardar cambios
+          </button>
+        </div>
+      </div>
+
+      {% if perms.carnets.editar_imprimir_carnets %}
+      <div class="mt-3 d-flex gap-2">
+        <a href="{{ pdf_url }}?descargar=1" class="btn btn-success flex-fill">
+          <i class="bi bi-printer me-1"></i>Imprimir / descargar PDF
+        </a>
+        <button type="button" class="btn btn-outline-danger"
+                onclick="if(confirm('¿Eliminar este carnet?')) document.getElementById('eliminarCarnet').submit();">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+      {% endif %}
+    </form>
+
+    {% if perms.carnets.editar_imprimir_carnets %}
+    <form id="eliminarCarnet" method="post"
+          action="{% url 'carnets:credencial_eliminar' credencial.pk %}">
+      {% csrf_token %}
+    </form>
+    {% endif %}
+
+    <div class="mt-3 small">
+      <a href="{{ digital_url }}" target="_blank">
+        <i class="bi bi-qr-code me-1"></i>Ver página digital (lo que muestra el QR)
+      </a>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-eye me-1"></i>Vista previa del carnet</span>
+        <a href="{{ pdf_url }}?descargar=1" class="btn btn-sm btn-outline-primary">
+          <i class="bi bi-download me-1"></i>Descargar
+        </a>
+      </div>
+      <div class="card-body bg-secondary p-2" style="height: 78vh;">
+        <iframe id="previewFrame" title="Vista previa del carnet"
+                src="{{ pdf_url }}?vista=previa"
+                style="width:100%; height:100%; border:0; background:#fff;"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

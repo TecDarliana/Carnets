@@ -1,5 +1,7 @@
 import base64
 import uuid
+import os
+import shutil
 from io import BytesIO
 
 import qrcode
@@ -7,8 +9,29 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
+from django.conf import settings
 
 from apps.personas.models import Empleado
+
+
+class Plantilla(models.Model):
+    class Meta:
+        verbose_name = 'plantilla de carnet'
+        verbose_name_plural = 'plantillas de carnet'
+        ordering = ['-activa', 'nombre']
+
+    nombre = models.CharField('nombre', max_length=100)
+    descripcion = models.TextField('descripción', blank=True)
+    archivo = models.FileField('archivo PPTX', upload_to='plantillas/', null=True, blank=True, default=None)
+    razon_social = models.CharField('razón social / nombre jurídico', max_length=200, blank=True)
+    telefono = models.CharField('teléfono', max_length=50, blank=True)
+    correo = models.EmailField('correo', blank=True)
+    activa = models.BooleanField('activa', default=False,
+                                help_text='Marca la plantilla que se usará al generar carnets automáticamente')
+    creado = models.DateTimeField('creado', auto_now_add=True)
+
+    def __str__(self):
+        return self.nombre
 
 
 class Carnet(models.Model):
@@ -71,6 +94,46 @@ class Carnet(models.Model):
 
     def get_absolute_url(self):
         return reverse('carnets:detalle', args=[self.pk])
+
+
+class Credencial(models.Model):
+    """Carnet que puede provenir de SIGLAS o ser ingresado manualmente.
+
+    A diferencia de `Carnet` (vinculado a Empleado), aquí los datos son
+    editables antes de imprimir y el QR apunta a una página pública con la
+    versión digital del carnet.
+    """
+
+    class Origen(models.TextChoices):
+        SIGLAS = 'siglas', 'Base de datos (SIGLAS)'
+        MANUAL = 'manual', 'Ingreso manual'
+
+    nombre_completo = models.CharField('nombre completo', max_length=255)
+    documento = models.CharField('documento (cédula / RIF)', max_length=32, blank=True)
+    cargo = models.CharField('cargo', max_length=255, blank=True)
+    foto = models.ImageField('foto', upload_to='fotos_carnets/', blank=True, null=True)
+    codigo = models.UUIDField('código público (QR)', default=uuid.uuid4, editable=False, unique=True)
+    origen = models.CharField('origen', max_length=10, choices=Origen.choices,
+                              default=Origen.MANUAL, editable=False)
+    ci_origen = models.CharField('cédula de origen (SIGLAS)', max_length=20, blank=True, editable=False)
+    creado_por = models.ForeignKey(
+        User, verbose_name='creado por', on_delete=models.SET_NULL, null=True, blank=True,
+    )
+    creado = models.DateTimeField('creado', auto_now_add=True)
+    actualizado = models.DateTimeField('actualizado', auto_now=True)
+
+    class Meta:
+        verbose_name = 'credencial (carnet)'
+        verbose_name_plural = 'credenciales / carnets'
+        ordering = ['-creado']
+        permissions = [
+            ('ver_carnets', 'Puede consultar los datos de los carnets'),
+            ('editar_imprimir_carnets', 'Puede editar la información e imprimir carnets'),
+            ('crear_carnet_manual', 'Puede crear carnets con datos manuales'),
+        ]
+
+    def __str__(self):
+        return f'{self.nombre_completo} ({self.documento or "sin documento"})'
 
 
 class HistorialCarnet(models.Model):
