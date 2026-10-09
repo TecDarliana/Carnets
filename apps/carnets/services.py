@@ -25,8 +25,19 @@ def _gradiente(draw, x0, y0, x1, y1, inicio, fin):
         draw.line([(x, y0), (x, y1)], fill=color)
 
 
+def _sobre_blanco(img):
+    """Aplana la transparencia sobre blanco (convert('RGB') la vuelve negra)."""
+    if img.mode == 'P' and 'transparency' in img.info:
+        img = img.convert('RGBA')
+    if img.mode in ('RGBA', 'LA'):
+        fondo = Image.new('RGB', img.size, (255, 255, 255))
+        fondo.paste(img, mask=img.getchannel('A'))
+        return fondo
+    return img.convert('RGB')
+
+
 def _foto_circular(ruta, tamano):
-    img = Image.open(ruta).convert('RGB')
+    img = _sobre_blanco(Image.open(ruta))
     img.thumbnail((tamano * 2, tamano * 2))
     img = img.resize((tamano, tamano), Image.LANCZOS)
     mask = Image.new('L', (tamano, tamano), 0)

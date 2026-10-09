@@ -131,9 +131,25 @@ def descargar_foto(ci):
     return resp.content
 
 
+def _sobre_blanco(img):
+    """Aplana la transparencia sobre fondo blanco.
+
+    ``Image.convert('RGB')`` convierte los píxeles transparentes en NEGRO,
+    por eso las imágenes con canal alfa deben componerse sobre blanco antes
+    de usarse en el PDF.
+    """
+    if img.mode == 'P' and 'transparency' in img.info:
+        img = img.convert('RGBA')
+    if img.mode in ('RGBA', 'LA'):
+        fondo = Image.new('RGB', img.size, (255, 255, 255))
+        fondo.paste(img, mask=img.getchannel('A'))
+        return fondo
+    return img.convert('RGB')
+
+
 def _foto_cuadrada(foto_bytes, lado=500):
     """Recorta la foto a cuadrado (centrado arriba, donde está la cara)."""
-    img = Image.open(io.BytesIO(foto_bytes)).convert('RGB')
+    img = _sobre_blanco(Image.open(io.BytesIO(foto_bytes)))
     return ImageOps.fit(img, (lado, lado), method=Image.LANCZOS, centering=(0.5, 0.35))
 
 
@@ -408,9 +424,15 @@ def _dibujar_pagina(c, diapositiva, alto_pagina, ancho_pagina, valores, fotos):
     for cfg in diapositiva['textos']:
         asset = _bytes_asset(cfg.get('asset')) if cfg.get('asset') else None
         if asset is not None:
-            # Marcador vinculado a un asset: se dibuja la imagen en su caja.
-            _dibujar_imagen(c, io.BytesIO(asset), cfg['caja'], alto_pagina,
-                            rot=cfg.get('rot', 0.0), mask=None)
+            # Marcador vinculado a un asset: se dibuja la imagen en su caja,
+            # con la transparencia aplanada sobre blanco (nunca negro).
+            try:
+                img_asset = _sobre_blanco(Image.open(io.BytesIO(asset)))
+            except Exception:
+                img_asset = None
+            if img_asset is not None:
+                _dibujar_imagen(c, img_asset, cfg['caja'], alto_pagina,
+                                rot=cfg.get('rot', 0.0))
             continue
         contenido = valores.get(cfg['marca'])
         if contenido is None:
