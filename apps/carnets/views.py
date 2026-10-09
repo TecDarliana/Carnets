@@ -1,10 +1,14 @@
+import json
+import tempfile
+from pathlib import Path
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.db.models import Q
 from django.urls import reverse, reverse_lazy
@@ -14,7 +18,7 @@ from django.template.defaultfilters import filesizeformat
 
 from apps.personas.models import Empleado
 
-from . import siglas
+from . import diseno, siglas
 from .forms import CarnetForm, CredencialForm, PlantillaForm
 from .models import Carnet, Credencial, HistorialCarnet, Plantilla
 from .services import imagen_carnet_png
@@ -239,6 +243,197 @@ class PlantillaUpdateView(LoginRequiredMixin, PermisoCarnetMixin, UpdateView):
         if form.instance.activa:
             Plantilla.objects.filter(activa=True).exclude(pk=form.instance.pk).update(activa=False)
         return super().form_valid(form)
+
+
+# ---------------------------------------------------------------------------
+# Editor visual de plantillas (layout JSON ⇄ PPTX)
+# ---------------------------------------------------------------------------
+
+ANCHO_DEFECTO = 447.0
+ALTO_DEFECTO = 696.5
+
+
+def _layout_plantilla_activa():
+    """Layout de la plantilla activa (o de la primera con archivo)."""
+    plantilla = Plantilla.objects.filter(archivo__isnull=False).exclude(
+        archivo='').order_by('-activa', '-id').first()
+    if plantilla:
+        try:
+            return diseno.plantilla_a_layout(plantilla.archivo.path), plantilla
+        except Exception:
+            pass
+    return _layout_vacio(), None
+
+
+def _layout_vacio():
+    return {'ancho': ANCHO_DEFECTO, 'alto': ALTO_DEFECTO,
+            'paginas': [{'nombre': 'Anverso', 'elementos': []},
+                        {'nombre': 'Reverso', 'elementos': []}]}
+
+
+def _json_body(request):
+    try:
+        return json.loads(request.body.decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+
+def editor_plantilla(request, pk=None):
+    """Editor visual. Sin `pk` parte de la plantilla activa o de un lienzo vacío."""
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL)
+    if not _permiso_requerido(request.user, 'editar_imprimir_carnets'):
+        raise PermissionDenied
+
+    plantilla = None
+    if pk:
+        plantilla = get_object_or_404(Plantilla, pk=pk)
+        try:
+            layout = diseno.plantilla_a_layout(plantilla.archivo.path)
+        except Exception:
+            layout = _layout_vacio()
+    else:
+        # Sin pk: lienzo en blanco (o el layout de la plantilla activa si se pide).
+        if request.GET.get('desde_activa'):
+            layout, plantilla = _layout_plantilla_activa()
+        else:
+            layout = _layout_vacio()
+
+    return render(request, 'carnets/editor.html', {
+        'plantilla': plantilla,
+        'layout': layout,
+        'libreria': diseno.libreria(),
+        'ancho': layout['ancho'],
+        'alto': layout['alto'],
+        'guardar_url': reverse('carnets:plantilla_guardar'),
+        'preview_url': reverse('carnets:plantilla_preview'),
+        'importar_url': reverse('carnets:plantilla_importar'),
+    })
+
+
+@require_POST
+def plantilla_guardar(request):
+    """Genera el PPTX desde el layout del editor y lo guarda en una Plantilla."""
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL)
+    if not _permiso_requerido(request.user, 'editar_imprimir_carnets'):
+        raise PermissionDenied
+
+    datos = _json_body(request)
+    if not datos or 'layout' not in datos:
+        return HttpResponse('Datos inválidos', status=400)
+
+    layout = datos['layout']
+    try:
+        contenido = diseno.layout_a_pptx(layout)
+    except Exception as exc:
+        return HttpResponse('No se pudo generar la plantilla: %s' % exc, status=400)
+
+    plantilla = None
+    if datos.get('pk'):
+        plantilla = get_object_or_404(Plantilla, pk=datos['pk'])
+    if plantilla is None:
+        plantilla = Plantilla()
+
+    plantilla.nombre = (datos.get('nombre') or plantilla.nombre
+                        or 'Plantilla sin nombre')
+    plantilla.descripcion = datos.get('descripcion', plantilla.descripcion or '')
+    plantilla.razon_social = datos.get('razon_social', plantilla.razon_social or '')
+    plantilla.telefono = datos.get('telefono', plantilla.telefono or '')
+    plantilla.correo = datos.get('correo', plantilla.correo or '')
+
+    # Los enlaces marcador↔asset viajan dentro del propio PPTX (descr de la
+    # forma como "__asset__:lib:..."), así que no se toca la descripcion.
+
+    plantilla.archivo.save('plantilla_%s.pptx' % plantilla.pk if plantilla.pk else 'plantilla.pptx',
+                           ContentFile(contenido), save=False)
+    if datos.get('activa'):
+        Plantilla.objects.filter(activa=True).exclude(pk=plantilla.pk).update(activa=False)
+        plantilla.activa = True
+    plantilla.save()
+
+    return JsonResponse({
+        'ok': True,
+        'pk': plantilla.pk,
+        'editor_url': reverse('carnets:plantilla_editor', args=[plantilla.pk]),
+        'lista_url': reverse('carnets:plantilla_lista'),
+    })
+
+
+@require_POST
+def plantilla_preview(request):
+    """Renderiza un PDF (vista previa) a partir del layout enviado."""
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL)
+    if not _permiso_requerido(request.user, 'editar_imprimir_carnets'):
+        raise PermissionDenied
+
+    datos = _json_body(request)
+    if not datos or 'layout' not in datos:
+        return HttpResponse('Datos inválidos', status=400)
+    try:
+        contenido = diseno.layout_a_pptx(datos['layout'])
+        with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as fh:
+            fh.write(contenido)
+            ruta = fh.name
+        campos = datos.get('campos') or {}
+        campos.setdefault('nombre', 'Nombre Apellido')
+        campos.setdefault('cargo', 'Cargo de ejemplo')
+        campos.setdefault('documento', '12345678')
+        pdf = siglas.render_pdf(campos, plantilla_ruta=ruta)
+    except Exception as exc:
+        return HttpResponse('No se pudo generar la vista previa: %s' % exc, status=400)
+    finally:
+        try:
+            Path(ruta).unlink()
+        except Exception:
+            pass
+
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="vista_previa.pdf"'
+    return response
+
+
+@require_POST
+def plantilla_importar(request):
+    """Convierte un `.pptx` subido al formato de layout del editor."""
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL)
+    if not _permiso_requerido(request.user, 'editar_imprimir_carnets'):
+        raise PermissionDenied
+
+    archivo = request.FILES.get('archivo')
+    if not archivo:
+        return HttpResponse('Falta el archivo', status=400)
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as fh:
+            for trozo in archivo.chunks():
+                fh.write(trozo)
+            ruta = fh.name
+        layout = diseno.plantilla_a_layout(ruta)
+    except Exception as exc:
+        return HttpResponse('No se pudo leer el PPTX: %s' % exc, status=400)
+    finally:
+        try:
+            Path(ruta).unlink()
+        except Exception:
+            pass
+    return JsonResponse({'ok': True, 'layout': layout})
+
+
+def libreria_elemento(request, nombre):
+    """Sirve una imagen de la librería `img/` para el editor."""
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL)
+    if not _permiso_requerido(request.user, 'editar_imprimir_carnets'):
+        raise PermissionDenied
+    if Path(nombre).name != nombre:
+        raise Http404
+    ruta = diseno.LIBRERIA_DIR / nombre
+    if not ruta.exists():
+        raise Http404
+    from django.http import FileResponse
+    return FileResponse(ruta.open('rb'))
 
 
 # ---------------------------------------------------------------------------

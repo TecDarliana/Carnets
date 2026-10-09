@@ -53,3 +53,118 @@ body {
     display: none !important;
   }
 }
+
+/* Editor de plantillas */
+.canvas-wrap {
+  background: #eef1f4;
+  overflow: auto;
+  max-height: 78vh;
+  padding: 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.lienzo {
+  position: relative;
+  background: #fff;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, .22);
+  flex: 0 0 auto;
+  user-select: none;
+}
+
+.lienzo .el {
+  position: absolute;
+  box-sizing: border-box;
+  cursor: move;
+}
+
+.lienzo .el-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: fill;
+  pointer-events: none;
+}
+
+.lienzo .el-marca {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #8a94a0;
+  background: rgba(160, 175, 190, .18);
+  color: #445;
+  font: 600 13px/1.2 system-ui, sans-serif;
+  text-align: center;
+  pointer-events: none;
+}
+
+.lienzo .el-texto {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+  color: #1b1f24;
+  pointer-events: none;
+  white-space: pre-wrap;
+}
+
+.lienzo .el.seleccionado {
+  outline: 2px solid #0d6efd;
+  z-index: 9999 !important;
+}
+
+.lienzo .handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid #0d6efd;
+  border-radius: 50%;
+  z-index: 5;
+}
+
+.libreria-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.libreria-item {
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: #fff;
+  padding: 4px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.libreria-item:hover {
+  border-color: var(--carnet-primario);
+}
+
+.libreria-item img {
+  width: 100%;
+  height: 42px;
+  object-fit: contain;
+  display: block;
+}
+
+.libreria-item span {
+  display: block;
+  font-size: 9px;
+  color: #667;
+  max-height: 24px;
+  overflow: hidden;
+  word-break: break-all;
+}
+
+.coords-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+}

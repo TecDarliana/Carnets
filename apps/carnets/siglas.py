@@ -185,18 +185,42 @@ def _margenes_de(body):
     return {'l': val('lIns'), 'r': val('rIns'), 't': val('tIns'), 'b': val('bIns')}
 
 
+def _rot_de(xfrm):
+    """Rotación de una forma en grados (PPTX la guarda en 1/60000 de grado)."""
+    if xfrm is None:
+        return 0.0
+    try:
+        return int(xfrm.get('rot') or 0) / 60000.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
 @lru_cache(maxsize=4)
 def _cargar_plantilla(ruta):
-    """Parsea el PPTX y devuelve tamaño, fondos, textos y imágenes por diapositiva."""
+    """Parsea el PPTX y devuelve tamaño, fondos, textos e imágenes por diapositiva.
+
+    Además de los marcadores ``{{...}}`` (texto e imagen) captura:
+
+    - ``estaticas``: imágenes decorativas sin marcador (banderas, pies de
+      página, etc.) que el editor inserta como capas fijas.
+    - fondos declarados como imagen con ``descr="__fondo__"`` (convención del
+      editor visual), usados cuando la diapositiva no tiene ``p:bg``.
+    - ``asset``: enlace de imagen asociado a un marcador de texto, guardado en
+      el ``descr`` de la forma como ``__asset__:lib:...`` o ``__asset__:data:...``.
+    """
     with zipfile.ZipFile(ruta) as z:
         pres = ET.fromstring(z.read('ppt/presentation.xml'))
         sld = pres.find('p:sldSz', NS)
         ancho, alto = int(sld.get('cx')), int(sld.get('cy'))
 
         diapositivas = []
-        for num in (1, 2):
-            xml = ET.fromstring(z.read('ppt/slides/slide%d.xml' % num))
-            rels = ET.fromstring(z.read('ppt/slides/_rels/slide%d.xml.rels' % num))
+        for num in range(1, 21):  # solo las diapositivas presentes en el archivo
+            try:
+                xml = ET.fromstring(z.read('ppt/slides/slide%d.xml' % num))
+                rels = ET.fromstring(
+                    z.read('ppt/slides/_rels/slide%d.xml.rels' % num))
+            except KeyError:
+                break
             relmap = {r.get('Id'): r.get('Target') for r in rels}
 
             def media(rid):
@@ -213,7 +237,7 @@ def _cargar_plantilla(ruta):
                 fondo = media(blip.get(_EMBED))
 
             arbol = xml.find('p:cSld/p:spTree', NS)
-            textos, imagenes = [], []
+            textos, imagenes, estaticas = [], [], []
 
             for sp in arbol.findall('p:sp', NS):
                 xfrm = sp.find('p:spPr/a:xfrm', NS)
@@ -221,6 +245,8 @@ def _cargar_plantilla(ruta):
                 if caja is None:
                     continue
                 body = sp.find('p:txBody/a:bodyPr', NS)
+                cnv = sp.find('p:nvSpPr/p:cNvPr', NS)
+                descr = (cnv.get('descr') or '') if cnv is not None else ''
                 for p_el in sp.findall('p:txBody/a:p', NS):
                     texto = ''.join(t.text or '' for t in p_el.iter(
                         '{%s}t' % NS['a']))
@@ -228,29 +254,45 @@ def _cargar_plantilla(ruta):
                         continue
                     marca = texto.replace('{', '').replace('}', '').strip()
                     sz, bold, familia, algn = _formato_de(p_el)
-                    textos.append({
+                    cfg = {
                         'marca': marca, 'caja': caja, 'sz': sz, 'bold': bold,
                         'familia': familia, 'algn': algn,
                         'margenes': _margenes_de(body),
-                    })
+                        'rot': _rot_de(xfrm),
+                    }
+                    if descr.startswith('__asset__:'):
+                        cfg['asset'] = descr[len('__asset__:'):]
+                    textos.append(cfg)
 
             for pic in arbol.findall('p:pic', NS):
                 cnv = pic.find('p:nvPicPr/p:cNvPr', NS)
                 descr = (cnv.get('descr') or '') if cnv is not None else ''
-                if '{{' not in descr:
-                    continue
-                caja = _caja_de(pic.find('p:spPr/a:xfrm', NS))
+                xfrm = pic.find('p:spPr/a:xfrm', NS)
+                caja = _caja_de(xfrm)
                 if caja is None:
                     continue
                 blip = pic.find('p:blipFill/a:blip', NS)
-                imagenes.append({
-                    'marca': descr.replace('{', '').replace('}', '').strip(),
-                    'caja': caja,
-                    'bytes': media(blip.get(_EMBED)),
-                })
+                if blip is None or not blip.get(_EMBED):
+                    continue
+                if '{{' in descr:
+                    imagenes.append({
+                        'marca': descr.replace('{', '').replace('}', '').strip(),
+                        'caja': caja,
+                        'bytes': media(blip.get(_EMBED)),
+                        'rot': _rot_de(xfrm),
+                    })
+                elif descr == '__fondo__':
+                    if fondo is None:
+                        fondo = media(blip.get(_EMBED))
+                else:
+                    estaticas.append({
+                        'caja': caja,
+                        'bytes': media(blip.get(_EMBED)),
+                        'rot': _rot_de(xfrm),
+                    })
 
             diapositivas.append({'fondo': fondo, 'textos': textos,
-                                 'imagenes': imagenes})
+                                 'imagenes': imagenes, 'estaticas': estaticas})
 
     return {'ancho': ancho, 'alto': alto, 'diapositivas': diapositivas}
 
@@ -314,18 +356,62 @@ def _rect(c, caja_emu, alto_pagina):
             w / EMU_POR_PT, h / EMU_POR_PT)
 
 
+def _bytes_asset(src):
+    """Resuelve un `src` de asset (``lib:``, ``data:`` o ruta en MEDIA) a bytes."""
+    if not src:
+        return None
+    try:
+        import base64
+        if src.startswith('data:'):
+            return base64.b64decode(src.partition(',')[2])
+        if src.startswith('lib:'):
+            return (Path(settings.BASE_DIR) / 'img' /
+                    Path(src[4:]).name).read_bytes()
+        ruta = Path(src)
+        if not ruta.is_absolute():
+            ruta = Path(settings.MEDIA_ROOT) / src
+        return ruta.read_bytes()
+    except Exception:
+        return None
+
+
+def _dibujar_imagen(c, contenido, caja, alto_pagina, rot=0.0, mask='auto'):
+    """Dibuja una imagen (bytes/IO) en la caja indicada, con rotación opcional."""
+    x, y, w, h = _rect(c, caja, alto_pagina)
+    if not w or not h:
+        return
+    if rot:
+        c.saveState()
+        c.translate(x + w / 2, y + h / 2)
+        c.rotate(-rot)
+        c.drawImage(ImageReader(contenido), -w / 2, -h / 2,
+                    width=w, height=h, mask=mask)
+        c.restoreState()
+    else:
+        c.drawImage(ImageReader(contenido), x, y, width=w, height=h,
+                    mask=mask)
+
+
 def _dibujar_pagina(c, diapositiva, alto_pagina, ancho_pagina, valores, fotos):
     if diapositiva['fondo']:
         c.drawImage(ImageReader(io.BytesIO(diapositiva['fondo'])), 0, 0,
                     width=ancho_pagina, height=alto_pagina)
+    for img in diapositiva.get('estaticas', []):
+        _dibujar_imagen(c, io.BytesIO(img['bytes']), img['caja'], alto_pagina,
+                        rot=img.get('rot', 0.0))
     for img in diapositiva['imagenes']:
         contenido = fotos.get(img['marca'])
         if contenido is None:
             continue
-        x, y, w, h = _rect(c, img['caja'], alto_pagina)
-        c.drawImage(ImageReader(contenido), x, y, width=w, height=h,
-                    mask='auto')
+        _dibujar_imagen(c, contenido, img['caja'], alto_pagina,
+                        rot=img.get('rot', 0.0))
     for cfg in diapositiva['textos']:
+        asset = _bytes_asset(cfg.get('asset')) if cfg.get('asset') else None
+        if asset is not None:
+            # Marcador vinculado a un asset: se dibuja la imagen en su caja.
+            _dibujar_imagen(c, io.BytesIO(asset), cfg['caja'], alto_pagina,
+                            rot=cfg.get('rot', 0.0), mask=None)
+            continue
         contenido = valores.get(cfg['marca'])
         if contenido is None:
             continue
@@ -398,16 +484,20 @@ def render_pdf(campos, foto=None, qr_texto=None, plantilla_ruta=None, titulo=Non
     c.setTitle(titulo or 'Carnet %s - %s' % (ci, campos.get('nombre') or ''))
 
     diapos = plantilla['diapositivas']
+    if not diapos:
+        raise ValueError('La plantilla no tiene diapositivas')
+
     fotos_anverso = {'foto': img}
     _dibujar_pagina(c, diapos[0], alto, ancho, valores, fotos_anverso)
     c.showPage()
 
-    fotos_dorso = {}
-    for imagin in diapos[1]['imagenes']:
-        if imagin['marca'] in ('code_qr', 'qr'):
-            fotos_dorso[imagin['marca']] = _qr_bytes(qr_texto)
-    _dibujar_pagina(c, diapos[1], alto, ancho, valores, fotos_dorso)
-    c.showPage()
+    if len(diapos) > 1:
+        fotos_dorso = {}
+        for imagin in diapos[1]['imagenes']:
+            if imagin['marca'] in ('code_qr', 'qr'):
+                fotos_dorso[imagin['marca']] = _qr_bytes(qr_texto)
+        _dibujar_pagina(c, diapos[1], alto, ancho, valores, fotos_dorso)
+        c.showPage()
 
     c.save()
     return buf.getvalue()

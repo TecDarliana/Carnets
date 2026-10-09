@@ -20,6 +20,14 @@ urlpatterns = [
     path('plantillas/nueva/', views.PlantillaCreateView.as_view(), name='plantilla_crear'),
     path('plantillas/<int:pk>/editar/', views.PlantillaUpdateView.as_view(), name='plantilla_editar'),
 
+    # Editor visual de plantillas
+    path('plantillas/editor/', views.editor_plantilla, name='plantilla_editor_nuevo'),
+    path('plantillas/<int:pk>/editor/', views.editor_plantilla, name='plantilla_editor'),
+    path('plantillas/guardar/', views.plantilla_guardar, name='plantilla_guardar'),
+    path('plantillas/vista-previa/', views.plantilla_preview, name='plantilla_preview'),
+    path('plantillas/importar/', views.plantilla_importar, name='plantilla_importar'),
+    path('libreria/<str:nombre>/', views.libreria_elemento, name='libreria_elemento'),
+
     # Credenciales (carnets editables, manuales o desde SIGLAS)
     path('credenciales/', views.CredencialListView.as_view(), name='credencial_lista'),
     path('credenciales/nueva/', views.credencial_crear, name='credencial_crear'),
