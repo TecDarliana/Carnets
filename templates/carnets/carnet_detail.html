@@ -48,7 +48,7 @@
       <div class="card-body">
         <dl class="row mb-0">
           <dt class="col-sm-5">Empleado</dt><dd class="col-sm-7">
-            <a href="{% url 'personas:detalle' carnet.empleado.pk %}">{{ carnet.empleado.nombre_completo }}</a>
+            {{ carnet.empleado.nombre_completo }}
           </dd>
           <dt class="col-sm-5">Código único</dt><dd class="col-sm-7"><code>{{ carnet.codigo }}</code></dd>
           <dt class="col-sm-5">Tipo</dt><dd class="col-sm-7">{{ carnet.get_tipo_display }}</dd>

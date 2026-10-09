@@ -103,27 +103,6 @@ def carnet_imagen(request, pk):
     return response
 
 
-@require_POST
-def generar_carnet(request, empleado_pk):
-    empleado = get_object_or_404(Empleado, pk=empleado_pk)
-    carnet = empleado.carnets.filter(estado=Carnet.Estado.GENERADO).first()
-    if not carnet:
-        carnet = Carnet.objects.create(empleado=empleado, estado=Carnet.Estado.GENERADO)
-        messages.success(request, f'Carnet generado para {empleado.nombre_completo}.')
-    return redirect('carnets:detalle', pk=carnet.pk)
-
-
-@require_POST
-def generar_todos(request):
-    pendientes = Empleado.objects.exclude(carnets__estado=Carnet.Estado.GENERADO).distinct()
-    cantidad = 0
-    for empleado in pendientes:
-        Carnet.objects.create(empleado=empleado, estado=Carnet.Estado.GENERADO)
-        cantidad += 1
-    messages.success(request, f'{cantidad} carnet(s) generado(s).')
-    return redirect('personas:lista')
-
-
 @login_required
 def buscar(request):
     """Busca un funcionario en SIGLAS por cédula y ofrece el PDF del carnet."""

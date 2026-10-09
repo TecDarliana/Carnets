@@ -1,6 +1,5 @@
 from django.core.validators import RegexValidator
 from django.db import models
-from django.urls import reverse
 
 
 class Empleado(models.Model):
@@ -50,6 +49,3 @@ class Empleado(models.Model):
     @property
     def nombre_completo(self):
         return f'{self.nombres} {self.apellidos}'.strip()
-
-    def get_absolute_url(self):
-        return reverse('personas:detalle', args=[self.pk])
