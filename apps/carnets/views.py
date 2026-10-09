@@ -12,6 +12,7 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.db.models import Q
 from django.urls import reverse, reverse_lazy
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 from django.template.defaultfilters import filesizeformat
@@ -155,6 +156,7 @@ def buscar(request):
 
 
 @login_required
+@xframe_options_sameorigin
 def carnet_pdf_siglas(request, ci):
     """Genera y sirve el PDF del carnet para la cédula indicada.
 
@@ -622,6 +624,7 @@ def credencial_editar(request, pk):
     })
 
 
+@xframe_options_sameorigin
 def credencial_pdf(request, pk):
     """Sirve el PDF del carnet (anverso + dorso) con QR a la página digital."""
     if not request.user.is_authenticated:
