@@ -53,9 +53,11 @@
             data-bs-target="#modalPreview">
       <i class="bi bi-eye me-1"></i>Vista previa
     </button>
-    <a href="{% url 'carnets:pdf' datos.ci %}?descargar=1" class="btn btn-primary">
-      <i class="bi bi-file-earmark-pdf me-1"></i>Descargar PDF
-    </a>
+    {% if perms.carnets.editar_imprimir_carnets or perms.carnets.crear_carnet_manual %}
+      <a href="{% url 'carnets:pdf' datos.ci %}?descargar=1" class="btn btn-primary">
+        <i class="bi bi-file-earmark-pdf me-1"></i>Descargar PDF
+      </a>
+    {% endif %}
   </div>
 </div>
 
@@ -72,9 +74,11 @@
       </div>
       <div class="modal-footer py-1">
         <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
-        <a href="{% url 'carnets:pdf' datos.ci %}?descargar=1" class="btn btn-primary btn-sm">
-          <i class="bi bi-download me-1"></i>Descargar
-        </a>
+        {% if perms.carnets.editar_imprimir_carnets or perms.carnets.crear_carnet_manual %}
+          <a href="{% url 'carnets:pdf' datos.ci %}?descargar=1" class="btn btn-primary btn-sm">
+            <i class="bi bi-download me-1"></i>Descargar
+          </a>
+        {% endif %}
       </div>
     </div>
   </div>

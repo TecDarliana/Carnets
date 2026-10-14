@@ -2,17 +2,20 @@ from django.apps import AppConfig
 from django.db.models.signals import post_migrate
 
 GRUPOS = {
-    'Solo lectura': {
+    'Consultor': {
         'codenames': ['ver_carnets'],
-        'descripcion': 'Solo consulta los datos de los carnets.',
+        'descripcion': 'Solo consulta: busca por cédula, ve el carnet y el historial.',
     },
-    'Editores e impresión': {
+    'Analista': {
         'codenames': ['ver_carnets', 'editar_imprimir_carnets'],
-        'descripcion': 'Puede editar la información del carnet e imprimirlo.',
+        'descripcion': 'Genera carnets de empleados existentes en la base de datos '
+                       '(no puede crear carnets especiales).',
     },
-    'Creadores manuales': {
-        'codenames': ['ver_carnets', 'crear_carnet_manual'],
-        'descripcion': 'Puede crear carnets con información manual (no proviene de la base de datos).',
+    'Gerente': {
+        'codenames': ['ver_carnets', 'editar_imprimir_carnets',
+                      'crear_carnet_manual', 'editar_plantillas'],
+        'descripcion': 'Acceso total: todo tipo de carnets, plantillas, '
+                       'búsqueda, historial y empleados.',
     },
 }
 
@@ -24,6 +27,7 @@ def crear_grupos(sender, **kwargs):
     try:
         codenames = {
             'ver_carnets', 'editar_imprimir_carnets', 'crear_carnet_manual',
+            'editar_plantillas',
         }
         permisos_codenames = {
             p.codename: p for p in Permission.objects.filter(codename__in=codenames)

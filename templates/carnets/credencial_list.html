@@ -8,9 +8,11 @@
     <a href="{% url 'carnets:credencial_crear' %}?origen=siglas" class="btn btn-outline-primary">
       <i class="bi bi-database me-1"></i>Desde base de datos
     </a>
-    <a href="{% url 'carnets:credencial_crear' %}?origen=manual" class="btn btn-primary">
-      <i class="bi bi-person-plus me-1"></i>Nuevo manual
-    </a>
+    {% if perms.carnets.crear_carnet_manual %}
+      <a href="{% url 'carnets:credencial_crear' %}?origen=manual" class="btn btn-primary">
+        <i class="bi bi-person-plus me-1"></i>Nuevo manual
+      </a>
+    {% endif %}
   </div>
   {% endif %}
 </div>
@@ -50,10 +52,12 @@
             {{ credencial.get_origen_display }}
           </span>
           <div class="mt-auto d-flex gap-2 mt-3">
-            <a href="{% url 'carnets:credencial_editar' credencial.pk %}"
-               class="btn btn-sm btn-primary flex-fill">
-              <i class="bi bi-pencil me-1"></i>Editar / imprimir
-            </a>
+            {% if credencial.origen != 'manual' or perms.carnets.crear_carnet_manual %}
+              <a href="{% url 'carnets:credencial_editar' credencial.pk %}"
+                 class="btn btn-sm btn-primary flex-fill">
+                <i class="bi bi-pencil me-1"></i>Editar / imprimir
+              </a>
+            {% endif %}
             <a href="{% url 'carnets:credencial_digital' credencial.codigo %}"
                class="btn btn-sm btn-outline-secondary" target="_blank" title="Página digital">
               <i class="bi bi-qr-code"></i>

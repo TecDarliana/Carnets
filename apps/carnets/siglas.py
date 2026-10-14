@@ -45,6 +45,26 @@ LEFT JOIN funcionarios.informacion_corporal ic
 WHERE f.ci = %s AND f.status = 'A';
 """
 
+CONSULTA_FUNCIONARIOS = """
+SELECT DISTINCT ON (f.id)
+       f.ci, f.primer_nombre, f.segundo_nombre, f.primer_apellido, f.segundo_apellido,
+       ct.nombre AS cargo, u.nombre AS departamento, foto.ruta AS foto_ruta,
+       fc.f_ingreso
+FROM funcionarios.funcionario f
+INNER JOIN funcionarios.funcionario_cargo fc
+        ON f.id = fc.funcionario_id AND fc.status = 'A'
+INNER JOIN organigrama.cargo c
+        ON fc.cargo_id = c.id AND c.status = 'O'
+INNER JOIN organigrama.cargo_tipo ct
+        ON c.cargo_tipo_id = ct.id
+INNER JOIN organigrama.unidad u
+        ON c.unidad_funcional_id = u.id AND u.status = 'A'
+LEFT JOIN funcionarios.foto foto
+        ON f.id = foto.funcionario_id AND foto.status = 'A'
+WHERE f.status = 'A'
+ORDER BY f.id, fc.f_ingreso DESC NULLS LAST;
+"""
+
 NS = {
     'p': 'http://schemas.openxmlformats.org/presentationml/2006/main',
     'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
@@ -80,19 +100,7 @@ def _fuente_de(familia, bold):
 # Consulta a la BD de SIGLAS
 # ---------------------------------------------------------------------------
 
-def buscar_funcionario(ci):
-    """Consulta SIGLAS por cédula. Devuelve un dict o None si no existe."""
-    conn = psycopg2.connect(**settings.SIGLAS_DB)
-    try:
-        with conn.cursor() as cur:
-            cur.execute(CONSULTA_FUNCIONARIO, (int(ci),))
-            row = cur.fetchone()
-    finally:
-        conn.close()
-
-    if row is None:
-        return None
-
+def _fila_funcionario(row):
     primer_nombre = (row[1] or '').strip()
     segundo_nombre = (row[2] or '').strip()
     primer_apellido = (row[3] or '').strip()
@@ -107,8 +115,48 @@ def buscar_funcionario(ci):
         'cargo': (row[5] or '').strip(),
         'departamento': (row[6] or '').strip(),
         'foto_ruta': row[7],
-        'tipo_sangre': row[8],
     }
+
+
+def buscar_funcionario(ci):
+    """Consulta SIGLAS por cédula. Devuelve un dict o None si no existe."""
+    conn = psycopg2.connect(**settings.SIGLAS_DB)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(CONSULTA_FUNCIONARIO, (int(ci),))
+            row = cur.fetchone()
+    finally:
+        conn.close()
+
+    if row is None:
+        return None
+
+    datos = _fila_funcionario(row)
+    datos['tipo_sangre'] = row[8]
+    return datos
+
+
+def listar_funcionarios():
+    """Todos los funcionarios activos de SIGLAS, ordenados por apellido y nombre.
+
+    Cada dict incluye además ``fecha_ingreso`` (date o None). Si un funcionario
+    tiene varios cargos activos se toma el ingreso más reciente.
+    """
+    conn = psycopg2.connect(**settings.SIGLAS_DB)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(CONSULTA_FUNCIONARIOS)
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    funcionarios = []
+    for row in rows:
+        datos = _fila_funcionario(row)
+        datos['fecha_ingreso'] = row[8]
+        funcionarios.append(datos)
+    funcionarios.sort(key=lambda f: (f['apellidos'].lower(), f['nombres'].lower()))
+    return funcionarios
 
 
 # ---------------------------------------------------------------------------
@@ -468,6 +516,38 @@ def _ruta_plantilla_activa():
     return Path(settings.PLANTILLA_CARNET)
 
 
+def _preparar_valores(campos, foto):
+    """Valores de marcadores + foto cuadrada (o placeholder) para una página."""
+    ci = str(campos.get('documento', '')).strip()
+    if foto:
+        img = _foto_cuadrada(foto)
+    else:
+        img = _foto_placeholder(ci or '—')
+    valores = {
+        'nombre': campos.get('nombre') or '—',
+        'cargo': campos.get('cargo') or '—',
+        'documento': ci or '—',
+        'razon_social': campos.get('razon_social') or '',
+        'telefono': campos.get('telefono') or '',
+        'correo': campos.get('correo') or '',
+    }
+    return valores, img
+
+
+def _dibujar_carnet(c, diapos, alto, ancho, valores, img, qr_texto):
+    """Dibuja el anverso (y dorso, si la plantilla lo tiene) de un carnet."""
+    _dibujar_pagina(c, diapos[0], alto, ancho, valores, {'foto': img})
+    c.showPage()
+
+    if len(diapos) > 1:
+        fotos_dorso = {}
+        for imagin in diapos[1]['imagenes']:
+            if imagin['marca'] in ('code_qr', 'qr'):
+                fotos_dorso[imagin['marca']] = _qr_bytes(qr_texto)
+        _dibujar_pagina(c, diapos[1], alto, ancho, valores, fotos_dorso)
+        c.showPage()
+
+
 def render_pdf(campos, foto=None, qr_texto=None, plantilla_ruta=None, titulo=None):
     """Genera el PDF del carnet (anverso + dorso) a partir de `campos`.
 
@@ -483,19 +563,7 @@ def render_pdf(campos, foto=None, qr_texto=None, plantilla_ruta=None, titulo=Non
     alto = plantilla['alto'] / EMU_POR_PT
 
     ci = str(campos.get('documento', '')).strip()
-    if foto:
-        img = _foto_cuadrada(foto)
-    else:
-        img = _foto_placeholder(ci or '—')
-
-    valores = {
-        'nombre': campos.get('nombre') or '—',
-        'cargo': campos.get('cargo') or '—',
-        'documento': ci or '—',
-        'razon_social': campos.get('razon_social') or '',
-        'telefono': campos.get('telefono') or '',
-        'correo': campos.get('correo') or '',
-    }
+    valores, img = _preparar_valores(campos, foto)
 
     if qr_texto is None:
         qr_texto = 'CARNET\nCI: %s\n%s' % (
@@ -509,17 +577,44 @@ def render_pdf(campos, foto=None, qr_texto=None, plantilla_ruta=None, titulo=Non
     if not diapos:
         raise ValueError('La plantilla no tiene diapositivas')
 
-    fotos_anverso = {'foto': img}
-    _dibujar_pagina(c, diapos[0], alto, ancho, valores, fotos_anverso)
-    c.showPage()
+    _dibujar_carnet(c, diapos, alto, ancho, valores, img, qr_texto)
 
-    if len(diapos) > 1:
-        fotos_dorso = {}
-        for imagin in diapos[1]['imagenes']:
-            if imagin['marca'] in ('code_qr', 'qr'):
-                fotos_dorso[imagin['marca']] = _qr_bytes(qr_texto)
-        _dibujar_pagina(c, diapos[1], alto, ancho, valores, fotos_dorso)
-        c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def generar_pdf_lote(funcionarios):
+    """Un único PDF con el carnet (anverso + dorso) de cada funcionario.
+
+    ``funcionarios`` es la lista de dicts devuelta por ``listar_funcionarios``.
+    La foto de cada uno se descarga de la web de SIGLAS; si falla, se usa el
+    placeholder "SIN FOTO".
+    """
+    _registrar_fuentes()
+    ruta = _ruta_plantilla_activa()
+    plantilla = _cargar_plantilla(str(ruta))
+    ancho = plantilla['ancho'] / EMU_POR_PT
+    alto = plantilla['alto'] / EMU_POR_PT
+
+    diapos = plantilla['diapositivas']
+    if not diapos:
+        raise ValueError('La plantilla no tiene diapositivas')
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(ancho, alto))
+    c.setTitle('Carnets de empleados')
+
+    for f in funcionarios:
+        ci = f['ci']
+        campos = {
+            'nombre': f['nombre_completo'],
+            'cargo': f['cargo'] or '—',
+            'documento': ci,
+        }
+        foto = descargar_foto(ci)
+        valores, img = _preparar_valores(campos, foto)
+        qr_texto = 'CARNET\nCI: %s\n%s' % (ci, f['nombre_completo'])
+        _dibujar_carnet(c, diapos, alto, ancho, valores, img, qr_texto)
 
     c.save()
     return buf.getvalue()
