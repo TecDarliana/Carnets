@@ -8,8 +8,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', RedirectView.as_view(pattern_name='carnets:lista', permanent=False)),
     path('cuentas/', include('apps.accounts.urls')),
-    path('empleados/', include('apps.personas.urls')),
     path('carnets/', include('apps.carnets.urls')),
+    path('empleados/', include('apps.personas.urls')),
 ]
 
 if settings.DEBUG:
