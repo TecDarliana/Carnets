@@ -7,7 +7,6 @@ from io import BytesIO
 import qrcode
 from django.contrib.auth.models import User
 from django.db import models
-from django.urls import reverse
 from django.utils import timezone
 from django.conf import settings
 
@@ -91,9 +90,6 @@ class Carnet(models.Model):
         buffer = BytesIO()
         imagen.save(buffer, format='PNG')
         return 'data:image/png;base64,' + base64.b64encode(buffer.getvalue()).decode()
-
-    def get_absolute_url(self):
-        return reverse('carnets:detalle', args=[self.pk])
 
 
 class Credencial(models.Model):

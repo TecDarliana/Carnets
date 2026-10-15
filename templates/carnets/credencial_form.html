@@ -1,8 +1,13 @@
 {% extends 'base.html' %}
-{% block title %}Crear carnet{% endblock %}
+{% block title %}Carnets{% endblock %}
 {% block content %}
-<h1 class="h3 mb-3"><i class="bi bi-person-plus me-1"></i>Crear carnet</h1>
+<h1 class="h3 mb-1"><i class="bi bi-person-vcard me-1"></i>Carnets</h1>
+<p class="text-muted mb-4">
+  Busca un funcionario por cédula para ver su carnet
+  {% if puede_crear %}o crea carnets nuevos{% endif %}.
+</p>
 
+{% if perms.carnets.crear_carnet_manual %}
 <ul class="nav nav-pills mb-3">
   <li class="nav-item">
     <a class="nav-link {% if origen != 'manual' %}active{% endif %}"
@@ -10,19 +15,17 @@
       <i class="bi bi-database me-1"></i>Desde base de datos
     </a>
   </li>
-  {% if perms.carnets.crear_carnet_manual %}
   <li class="nav-item">
     <a class="nav-link {% if origen == 'manual' %}active{% endif %}"
        href="{% url 'carnets:credencial_crear' %}?origen=manual">
-      <i class="bi bi-person-lines-fill me-1"></i>Manual (sin base de datos)
+      <i class="bi bi-person-lines-fill me-1"></i>Manual (fuera de la institución)
     </a>
   </li>
-  {% endif %}
 </ul>
+{% endif %}
 
 {% if origen != 'manual' %}
-  <form method="get" class="mb-4">
-    <input type="hidden" name="origen" value="siglas">
+  <form method="get" action="{% url 'carnets:lista' %}" class="mb-4">
     <div class="input-group" style="max-width: 480px;">
       <input type="text" name="q" value="{{ q }}" class="form-control"
              placeholder="Cédula del funcionario" inputmode="numeric" autofocus>
@@ -37,44 +40,130 @@
   {% endif %}
 
   {% if datos %}
-    <div class="alert alert-success" style="max-width: 720px;">
-      <i class="bi bi-check-circle me-1"></i>Datos cargados desde SIGLAS.
-      <strong>Puedes corregir cualquier campo antes de guardar e imprimir.</strong>
+    <div class="card shadow-sm" style="max-width: 720px;">
+      <div class="card-body">
+        <div class="row g-4">
+          <div class="col-auto text-center">
+            <img src="{{ foto_url }}" alt="Foto de {{ datos.nombre_completo }}"
+                 class="rounded border"
+                 style="width: 150px; height: 150px; object-fit: cover;"
+                 onerror="this.replaceWith(Object.assign(document.createElement('div'),
+                          {className:'bg-secondary text-white rounded border d-flex align-items-center justify-content-center',
+                           style:'width:150px;height:150px;', textContent:'SIN FOTO'}))">
+          </div>
+          <div class="col">
+            <dl class="row mb-0">
+              <dt class="col-sm-4">Nombre</dt>
+              <dd class="col-sm-8">{{ datos.nombre_completo }}</dd>
+              <dt class="col-sm-4">Cédula</dt>
+              <dd class="col-sm-8">{{ datos.ci }}</dd>
+              <dt class="col-sm-4">Cargo</dt>
+              <dd class="col-sm-8">{{ datos.cargo|default:'—' }}</dd>
+              <dt class="col-sm-4">Departamento</dt>
+              <dd class="col-sm-8">{{ datos.departamento|default:'—' }}</dd>
+              {% if datos.tipo_sangre %}
+                <dt class="col-sm-4">Tipo de sangre</dt>
+                <dd class="col-sm-8">{{ datos.tipo_sangre }}</dd>
+              {% endif %}
+            </dl>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-end gap-2">
+        <a href="{% url 'carnets:lista' %}" class="btn btn-outline-secondary">Otra búsqueda</a>
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal"
+                data-bs-target="#modalPreview">
+          <i class="bi bi-eye me-1"></i>Vista previa
+        </button>
+        {% if perms.carnets.editar_imprimir_carnets or perms.carnets.crear_carnet_manual %}
+          <a href="{% url 'carnets:pdf' datos.ci %}?descargar=1" class="btn btn-primary">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Descargar PDF
+          </a>
+        {% endif %}
+      </div>
     </div>
   {% endif %}
 {% else %}
   <div class="alert alert-info" style="max-width: 720px;">
-    Ingresando los datos manualmente (socio, contratista, visitante, etc.).
-    Todos los campos y la foto son editables antes de imprimir.
+    Carnet para una persona fuera de la institución (socio, contratista,
+    visitante, etc.). Ingresa los datos manualmente; todos los campos y la
+    foto son editables antes de imprimir.
   </div>
 {% endif %}
 
-<form method="post" enctype="multipart/form-data" novalidate class="mt-3" style="max-width: 720px;">
-  {% csrf_token %}
-  {% if form.non_field_errors %}
-    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-  {% endif %}
-  <div class="card shadow-sm">
-    <div class="card-body">
-      <div class="row g-3">
-        {% for field in form %}
-          <div class="col-12 {% if field.name != 'foto' %}{% endif %}">
-            <label class="form-label" for="{{ field.id_for_label }}">
-              {{ field.label }}{% if field.field.required %} *{% endif %}
-            </label>
-            {{ field }}
-            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+{% if puede_crear %}
+  {% if datos or origen == 'manual' %}
+    <form method="post" enctype="multipart/form-data" novalidate
+          class="mt-4" style="max-width: 720px;">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+      {% if datos %}
+        <p class="text-muted small">
+          <i class="bi bi-pencil-square me-1"></i>
+          Puedes corregir cualquier dato antes de guardar el carnet.
+        </p>
+      {% endif %}
+      <div class="card shadow-sm">
+        <div class="card-header">{% if origen == 'manual' %}Datos del carnet{% else %}Datos del carnet (editables){% endif %}</div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for field in form %}
+              <div class="col-12 {% if field.name != 'foto' %}col-md-6{% endif %}">
+                <label class="form-label" for="{{ field.id_for_label }}">
+                  {{ field.label }}{% if field.field.required %} *{% endif %}
+                </label>
+                {{ field }}
+                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              </div>
+            {% endfor %}
           </div>
-        {% endfor %}
+        </div>
+        <div class="card-footer d-flex justify-content-end gap-2">
+          <a href="{% url 'carnets:lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Guardar y editar antes de imprimir
+          </button>
+        </div>
+      </div>
+    </form>
+  {% endif %}
+{% endif %}
+
+{% if datos %}
+<div class="modal fade" id="modalPreview" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="bi bi-person-vcard me-1"></i>Carnet {{ datos.nombre_completo }} ({{ datos.ci }})</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body bg-secondary p-2" style="height: 78vh;">
+        <iframe id="previewFrame" title="Vista previa del carnet"
+                style="width:100%; height:100%; border:0; background:#fff;"></iframe>
+      </div>
+      <div class="modal-footer py-1">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+        {% if perms.carnets.editar_imprimir_carnets or perms.carnets.crear_carnet_manual %}
+          <a href="{% url 'carnets:pdf' datos.ci %}?descargar=1" class="btn btn-primary btn-sm">
+            <i class="bi bi-download me-1"></i>Descargar
+          </a>
+        {% endif %}
       </div>
     </div>
-    <div class="card-footer d-flex justify-content-end gap-2">
-      <a href="{% url 'carnets:credencial_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
-      <button type="submit" class="btn btn-primary">
-        <i class="bi bi-check-lg me-1"></i>Guardar y editar antes de imprimir
-      </button>
-    </div>
   </div>
-</form>
+</div>
+
+<script>
+  const modalPreview = document.getElementById('modalPreview');
+  modalPreview.addEventListener('show.bs.modal', () => {
+    document.getElementById('previewFrame').src = "{% url 'carnets:pdf' datos.ci %}?vista=previa";
+  });
+  modalPreview.addEventListener('hidden.bs.modal', () => {
+    document.getElementById('previewFrame').src = 'about:blank';
+  });
+</script>
+{% endif %}
 {% endblock %}

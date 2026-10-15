@@ -5,17 +5,16 @@ from . import views
 app_name = 'carnets'
 
 urlpatterns = [
-    path('', views.CarnetListView.as_view(), name='lista'),
-    path('buscar/', views.buscar, name='buscar'),
+    # Página principal: búsqueda de cédula + creación de carnets
+    path('', views.credencial_crear, name='lista'),
+    path('credenciales/nueva/', views.credencial_crear, name='credencial_crear'),
+    path('pdf/<str:ci>/', views.carnet_pdf_siglas, name='pdf'),
+    path('generar-todos/', views.generar_todos, name='generar_todos'),
+
     path('historial/', views.HistorialListView.as_view(), name='historial'),
     path('historial/<int:pk>/eliminar/', views.historial_eliminar, name='historial_eliminar'),
-    path('pdf/<str:ci>/', views.carnet_pdf_siglas, name='pdf'),
-    path('nuevo/', views.CarnetCreateView.as_view(), name='crear'),
-    path('generar-todos/', views.generar_todos, name='generar_todos'),
-    path('<int:pk>/', views.CarnetDetailView.as_view(), name='detalle'),
-    path('<int:pk>/editar/', views.CarnetUpdateView.as_view(), name='editar'),
-    path('<int:pk>/eliminar/', views.CarnetDeleteView.as_view(), name='eliminar'),
-    path('<int:pk>/imagen/', views.carnet_imagen, name='imagen'),
+
+    # Plantillas
     path('plantillas/', views.PlantillaListView.as_view(), name='plantilla_lista'),
     path('plantillas/nueva/', views.PlantillaCreateView.as_view(), name='plantilla_crear'),
     path('plantillas/<int:pk>/editar/', views.PlantillaUpdateView.as_view(), name='plantilla_editar'),
@@ -29,8 +28,6 @@ urlpatterns = [
     path('libreria/<str:nombre>/', views.libreria_elemento, name='libreria_elemento'),
 
     # Credenciales (carnets editables, manuales o desde SIGLAS)
-    path('credenciales/', views.CredencialListView.as_view(), name='credencial_lista'),
-    path('credenciales/nueva/', views.credencial_crear, name='credencial_crear'),
     path('credenciales/<int:pk>/editar/', views.credencial_editar, name='credencial_editar'),
     path('credenciales/<int:pk>/pdf/', views.credencial_pdf, name='credencial_pdf'),
     path('credenciales/<int:pk>/eliminar/', views.credencial_eliminar, name='credencial_eliminar'),
