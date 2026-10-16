@@ -130,6 +130,7 @@ class Credencial(models.Model):
             ('editar_imprimir_carnets', 'Puede editar la información e imprimir carnets'),
             ('crear_carnet_manual', 'Puede crear carnets con datos manuales'),
             ('editar_plantillas', 'Puede crear y modificar plantillas de carnet'),
+            ('administrar_usuarios', 'Puede administrar los usuarios del sistema'),
         ]
 
     def __str__(self):

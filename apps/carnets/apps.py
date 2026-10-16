@@ -13,9 +13,10 @@ GRUPOS = {
     },
     'Gerente': {
         'codenames': ['ver_carnets', 'editar_imprimir_carnets',
-                      'crear_carnet_manual', 'editar_plantillas'],
+                      'crear_carnet_manual', 'editar_plantillas',
+                      'administrar_usuarios'],
         'descripcion': 'Acceso total: todo tipo de carnets, plantillas, '
-                       'búsqueda, historial y empleados.',
+                       'búsqueda, historial, empleados y usuarios.',
     },
 }
 
@@ -25,10 +26,7 @@ def crear_grupos(sender, **kwargs):
     from django.contrib.auth.models import Group, Permission
 
     try:
-        codenames = {
-            'ver_carnets', 'editar_imprimir_carnets', 'crear_carnet_manual',
-            'editar_plantillas',
-        }
+        codenames = {c for cfg in GRUPOS.values() for c in cfg['codenames']}
         permisos_codenames = {
             p.codename: p for p in Permission.objects.filter(codename__in=codenames)
         }

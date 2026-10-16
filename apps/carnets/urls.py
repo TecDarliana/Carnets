@@ -12,7 +12,6 @@ urlpatterns = [
     path('generar-todos/', views.generar_todos, name='generar_todos'),
 
     path('historial/', views.HistorialListView.as_view(), name='historial'),
-    path('historial/<int:pk>/eliminar/', views.historial_eliminar, name='historial_eliminar'),
 
     # Resguardo en MinIO (catálogo y descarga de archivos)
     path('respaldo/', views.ArchivoListView.as_view(), name='archivo_lista'),

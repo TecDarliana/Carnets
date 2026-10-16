@@ -25,12 +25,16 @@
             {% if perms.carnets.ver_carnets %}
               <li class="nav-item"><a class="nav-link" href="{% url 'carnets:lista' %}">Carnets</a></li>
               <li class="nav-item"><a class="nav-link" href="{% url 'carnets:historial' %}">Historial</a></li>
+              <li class="nav-item"><a class="nav-link" href="{% url 'carnets:archivo_lista' %}">Respaldo</a></li>
             {% endif %}
             {% if perms.carnets.editar_plantillas %}
               <li class="nav-item"><a class="nav-link" href="{% url 'carnets:plantilla_lista' %}">Plantillas</a></li>
             {% endif %}
             {% if perms.carnets.editar_imprimir_carnets %}
               <li class="nav-item"><a class="nav-link" href="{% url 'personas:lista' %}">Empleados</a></li>
+            {% endif %}
+            {% if perms.carnets.administrar_usuarios %}
+              <li class="nav-item"><a class="nav-link" href="{% url 'accounts:usuario_lista' %}">Usuarios</a></li>
             {% endif %}
           </ul>
           <ul class="navbar-nav">
