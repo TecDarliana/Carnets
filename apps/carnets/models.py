@@ -3,6 +3,7 @@ import uuid
 import os
 import shutil
 from io import BytesIO
+from pathlib import Path
 
 import qrcode
 from django.contrib.auth.models import User
@@ -112,6 +113,8 @@ class Credencial(models.Model):
     origen = models.CharField('origen', max_length=10, choices=Origen.choices,
                               default=Origen.MANUAL, editable=False)
     ci_origen = models.CharField('cédula de origen (SIGLAS)', max_length=20, blank=True, editable=False)
+    fecha_vencimiento = models.DateField('fecha de vencimiento', null=True, blank=True,
+                                         help_text='Opcional: usada por la página de validación del QR.')
     creado_por = models.ForeignKey(
         User, verbose_name='creado por', on_delete=models.SET_NULL, null=True, blank=True,
     )
@@ -152,3 +155,52 @@ class HistorialCarnet(models.Model):
 
     def __str__(self):
         return f'{self.ci} - {self.nombre} ({self.creado:%d/%m/%Y %H:%M})'
+
+
+class ArchivoCarnet(models.Model):
+    """Carnet, lote o fotografía resguardada en MinIO (catálogo local).
+
+    Los objetos ``generado`` se suben automáticamente al imprimir carnets;
+    los ``historico`` provienen del sistema anterior y se catalogan con el
+    comando ``carnets_importar_historico`` tras replicarlos con ``mc``.
+    """
+
+    class Tipo(models.TextChoices):
+        CARNET = 'carnet', 'Carnet (PDF)'
+        LOTE = 'lote', 'Lote de carnets'
+        FOTO = 'foto', 'Fotografía'
+
+    class Origen(models.TextChoices):
+        GENERADO = 'generado', 'Generado por este sistema'
+        HISTORICO = 'historico', 'Histórico (sistema anterior)'
+
+    ci = models.CharField('cédula', max_length=20, blank=True, db_index=True)
+    nombre = models.CharField('nombre', max_length=200, blank=True)
+    cargo = models.CharField('cargo', max_length=150, blank=True)
+    departamento = models.CharField('departamento', max_length=150, blank=True)
+    tipo = models.CharField('tipo', max_length=10, choices=Tipo.choices,
+                            default=Tipo.CARNET)
+    origen = models.CharField('origen', max_length=10, choices=Origen.choices,
+                              default=Origen.GENERADO)
+    bucket = models.CharField('bucket', max_length=64)
+    objeto = models.CharField('objeto (ruta en MinIO)', max_length=255)
+    tamano = models.IntegerField('tamaño (bytes)', default=0)
+    fecha_archivo = models.DateTimeField('fecha del archivo', null=True, blank=True)
+    creado = models.DateTimeField('catalogado', auto_now_add=True)
+    actualizado = models.DateTimeField('actualizado', auto_now=True)
+
+    class Meta:
+        verbose_name = 'archivo resguardado'
+        verbose_name_plural = 'resguardo de carnets (MinIO)'
+        ordering = ['-fecha_archivo', '-actualizado']
+        constraints = [
+            models.UniqueConstraint(fields=['bucket', 'objeto'],
+                                     name='unico_objeto_por_bucket'),
+        ]
+
+    def __str__(self):
+        return f'{self.objeto}'
+
+    @property
+    def nombre_descarga(self):
+        return Path(self.objeto).name or f'archivo_{self.pk}'

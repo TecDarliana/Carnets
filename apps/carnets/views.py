@@ -17,9 +17,9 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, ListView, UpdateView
 
-from . import diseno, siglas
+from . import diseno, minio_storage, siglas
 from .forms import CredencialForm, PlantillaForm
-from .models import Credencial, HistorialCarnet, Plantilla
+from .models import ArchivoCarnet, Credencial, HistorialCarnet, Plantilla
 
 
 class PermisoCarnetMixin(PermissionRequiredMixin):
@@ -82,6 +82,7 @@ def generar_todos(request):
             departamento=f['departamento'],
             usuario=request.user,
         )
+    minio_storage.guardar_pdf_lote(pdf, len(pendientes))
     messages.success(request, f'Se generaron {len(pendientes)} carnet(s). '
                               'El PDF con todos los carnets fue descargado.')
     response = HttpResponse(pdf, content_type='application/pdf')
@@ -118,6 +119,9 @@ def carnet_pdf_siglas(request, ci):
             departamento=datos['departamento'],
             usuario=request.user,
         )
+        minio_storage.guardar_pdf_carnet(
+            ci=datos['ci'], nombre=datos['nombre_completo'],
+            cargo=datos['cargo'], departamento=datos['departamento'], pdf=pdf)
     response = HttpResponse(pdf, content_type='application/pdf')
     modo = 'attachment' if request.GET.get('descargar') else 'inline'
     response['Content-Disposition'] = f'{modo}; filename="carnet_{ci}.pdf"'
@@ -528,11 +532,20 @@ def credencial_crear(request):
                 credencial.creado_por = request.user
                 credencial.save()
 
-                if not credencial.foto and origen_ci:
-                    foto_bytes = siglas.descargar_foto(origen_ci)
-                    if foto_bytes:
-                        credencial.foto.save(
-                            f'{origen_ci}.jpg', ContentFile(foto_bytes), save=True)
+            if not credencial.foto and origen_ci:
+                foto_bytes = siglas.descargar_foto(origen_ci)
+                if foto_bytes:
+                    credencial.foto.save(
+                        f'{origen_ci}.jpg', ContentFile(foto_bytes), save=True)
+
+            # Resguardo de la fotografía en MinIO (best-effort).
+            if credencial.foto:
+                ci_foto = credencial.ci_origen or credencial.documento
+                if ci_foto:
+                    try:
+                        minio_storage.guardar_foto(ci_foto, credencial.foto.read())
+                    except Exception:
+                        pass
 
                 messages.success(request,
                                  f'Carnet de {credencial.nombre_completo} creado. '
@@ -604,6 +617,10 @@ def credencial_pdf(request, pk):
             departamento='Credencial',
             usuario=request.user,
         )
+        if credencial.documento:
+            minio_storage.guardar_pdf_carnet(
+                ci=credencial.documento, nombre=credencial.nombre_completo,
+                cargo=credencial.cargo, pdf=pdf)
 
     response = HttpResponse(pdf, content_type='application/pdf')
     modo = 'attachment' if request.GET.get('descargar') else 'inline'
@@ -612,11 +629,104 @@ def credencial_pdf(request, pk):
     return response
 
 
+# ---------------------------------------------------------------------------
+# Resguardo en MinIO: catálogo de carnets, lotes y fotos
+# ---------------------------------------------------------------------------
+
+class ArchivoListView(LoginRequiredMixin, PermisoCarnetMixin, ListView):
+    """Tabla administrativa de los archivos resguardados en MinIO."""
+    model = ArchivoCarnet
+    permiso = 'ver_carnets'
+    template_name = 'carnets/archivo_list.html'
+    context_object_name = 'archivos'
+    paginate_by = 25
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        q = self.request.GET.get('q', '').strip()
+        tipo = self.request.GET.get('tipo', '').strip()
+        origen = self.request.GET.get('origen', '').strip()
+        if q:
+            qs = qs.filter(Q(ci__icontains=q) | Q(nombre__icontains=q))
+        if tipo:
+            qs = qs.filter(tipo=tipo)
+        if origen:
+            qs = qs.filter(origen=origen)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['q'] = self.request.GET.get('q', '')
+        ctx['tipo'] = self.request.GET.get('tipo', '')
+        ctx['origen'] = self.request.GET.get('origen', '')
+        ctx['tipos'] = ArchivoCarnet.Tipo.choices
+        ctx['origenes'] = ArchivoCarnet.Origen.choices
+        ctx['total_archivos'] = ArchivoCarnet.objects.count()
+        return ctx
+
+
+def archivo_descargar(request, pk):
+    """Descarga un archivo resguardado en MinIO a través del sistema."""
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL)
+    if not _permiso_requerido(request.user, 'editar_imprimir_carnets'):
+        raise PermissionDenied
+    archivo = get_object_or_404(ArchivoCarnet, pk=pk)
+    contenido = minio_storage.descargar(archivo.bucket, archivo.objeto)
+    if contenido is None:
+        messages.error(request, 'El archivo no está disponible en el '
+                                'almacenamiento (MinIO). Intente de nuevo.')
+        return redirect('carnets:archivo_lista')
+    extension = Path(archivo.objeto).suffix or ''
+    tipo_mime = ('application/pdf' if extension == '.pdf'
+                 else 'image/jpeg' if extension in ('.jpg', '.jpeg')
+                 else 'application/octet-stream')
+    response = HttpResponse(contenido, content_type=tipo_mime)
+    response['Content-Disposition'] = (
+        f'attachment; filename="{archivo.nombre_descarga}"')
+    return response
+
+
+def _vigencia_credencial(credencial):
+    """(estado, detalle) de vigencia para la página de validación pública.
+
+    estado: vigente | vencido | no_vigente | desconocido
+    """
+    hoy = timezone.localdate()
+
+    if credencial.fecha_vencimiento and credencial.fecha_vencimiento < hoy:
+        return 'vencido', f'Carnet vencido el {credencial.fecha_vencimiento:%d/%m/%Y}.'
+
+    if credencial.origen == Credencial.Origen.SIGLAS and credencial.documento:
+        try:
+            datos = siglas.buscar_funcionario(credencial.documento)
+        except Exception:
+            if credencial.fecha_vencimiento:
+                return 'vigente', (f'Vigente hasta el '
+                                   f'{credencial.fecha_vencimiento:%d/%m/%Y}.')
+            return 'desconocido', ('No se pudo verificar la vigencia contra la '
+                                   'base de datos de personal.')
+        if datos is None:
+            return 'no_vigente', ('La persona no figura como funcionario '
+                                  'activo en la institución.')
+        if credencial.fecha_vencimiento:
+            return 'vigente', (f'Funcionario activo. Vigente hasta el '
+                               f'{credencial.fecha_vencimiento:%d/%m/%Y}.')
+        return 'vigente', 'Funcionario activo en la institución.'
+
+    if credencial.fecha_vencimiento:
+        return 'vigente', f'Vigente hasta el {credencial.fecha_vencimiento:%d/%m/%Y}.'
+    return 'vigente', 'Carnet sin fecha de vencimiento.'
+
+
 def credencial_digital(request, codigo):
     """Página pública (sin login) a la que apunta el QR del carnet."""
     credencial = get_object_or_404(Credencial, codigo=codigo)
     plantilla = Plantilla.objects.filter(activa=True).order_by('-id').first()
+    estado, detalle = _vigencia_credencial(credencial)
     return render(request, 'carnets/credencial_digital.html', {
         'credencial': credencial,
         'plantilla': plantilla,
+        'estado': estado,
+        'detalle_vigencia': detalle,
     })

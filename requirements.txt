@@ -1,4 +1,5 @@
 asgiref==3.12.1
+boto3==1.43.114
 charset-normalizer==3.5.1
 Django==5.1.15
 django-widget-tweaks==1.5.1

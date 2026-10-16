@@ -106,6 +106,18 @@ SIGLAS_FOTO_URL = os.environ.get(
     'SIGLAS_FOTO_URL', 'http://172.17.0.180/images/fotos_personal/{ci}.jpg'
 )
 
+# Almacenamiento de objetos MinIO para el resguardo de carnets y fotos.
+# Si no hay credenciales configuradas, el resguardo queda deshabilitado y la
+# aplicación sigue funcionando con normalidad.
+MINIO = {
+    'ENDPOINT_URL': os.environ.get('MINIO_ENDPOINT_URL', 'http://172.17.9.90:9000'),
+    'ACCESS_KEY': os.environ.get('MINIO_ACCESS_KEY', ''),
+    'SECRET_KEY': os.environ.get('MINIO_SECRET_KEY', ''),
+    'BUCKET_CARNETS': os.environ.get('MINIO_BUCKET_CARNETS', 'carnets-personal'),
+    'BUCKET_FOTOS': os.environ.get('MINIO_BUCKET_FOTOS', 'fotoscarnets'),
+    'PREFIJO_HISTORICO': os.environ.get('MINIO_PREFIJO_HISTORICO', 'historico/'),
+}
+
 # Plantilla del carnet (PowerPoint) que se rellena y convierte a PDF
 PLANTILLA_CARNET = BASE_DIR / 'credencialfundacion.pptx'
 

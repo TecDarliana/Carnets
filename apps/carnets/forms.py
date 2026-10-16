@@ -8,12 +8,16 @@ class CredencialForm(forms.ModelForm):
 
     class Meta:
         model = Credencial
-        fields = ('nombre_completo', 'documento', 'cargo', 'foto')
+        fields = ('nombre_completo', 'documento', 'cargo',
+                  'fecha_vencimiento', 'foto')
         widgets = {
             'nombre_completo': forms.TextInput(attrs={'class': 'form-control'}),
             'documento': forms.TextInput(attrs={'class': 'form-control',
                                                 'inputmode': 'numeric'}),
             'cargo': forms.TextInput(attrs={'class': 'form-control'}),
+            'fecha_vencimiento': forms.DateInput(
+                attrs={'class': 'form-control', 'type': 'date'},
+            ),
             'foto': forms.ClearableFileInput(attrs={'class': 'form-control'}),
         }
 

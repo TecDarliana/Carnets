@@ -14,6 +14,10 @@ urlpatterns = [
     path('historial/', views.HistorialListView.as_view(), name='historial'),
     path('historial/<int:pk>/eliminar/', views.historial_eliminar, name='historial_eliminar'),
 
+    # Resguardo en MinIO (catálogo y descarga de archivos)
+    path('respaldo/', views.ArchivoListView.as_view(), name='archivo_lista'),
+    path('respaldo/<int:pk>/descargar/', views.archivo_descargar, name='archivo_descargar'),
+
     # Plantillas
     path('plantillas/', views.PlantillaListView.as_view(), name='plantilla_lista'),
     path('plantillas/nueva/', views.PlantillaCreateView.as_view(), name='plantilla_crear'),
