@@ -29,7 +29,6 @@
           <th scope="col">Cargo</th>
           <th scope="col">Departamento</th>
           <th scope="col">Usuario</th>
-          {% if user.is_superuser %}<th scope="col" class="text-end">Acciones</th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -43,21 +42,10 @@
             <td>{{ r.cargo|default:'—' }}</td>
             <td>{{ r.departamento|default:'—' }}</td>
             <td>{{ r.usuario.get_username|default:'—' }}</td>
-            {% if user.is_superuser %}
-              <td class="text-end">
-                <form method="post" action="{% url 'carnets:historial_eliminar' r.pk %}" class="d-inline"
-                      onsubmit="return confirm('¿Eliminar este registro del historial?');">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar registro">
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </form>
-              </td>
-            {% endif %}
           </tr>
         {% empty %}
           <tr>
-            <td colspan="{% if user.is_superuser %}7{% else %}6{% endif %}" class="text-center text-muted py-4">
+            <td colspan="6" class="text-center text-muted py-4">
               {% if q %}Sin resultados para «{{ q }}».{% else %}Todavía no se ha generado ningún carnet.{% endif %}
             </td>
           </tr>
