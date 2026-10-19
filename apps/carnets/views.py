@@ -143,6 +143,19 @@ class HistorialListView(LoginRequiredMixin, PermisoCarnetMixin, ListView):
         return qs
 
 
+@require_POST
+def historial_eliminar(request, pk):
+    """Elimina un registro del historial. Solo el administrador puede hacerlo."""
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL)
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    registro = get_object_or_404(HistorialCarnet, pk=pk)
+    registro.delete()
+    messages.success(request, 'Registro del historial eliminado.')
+    return redirect('carnets:historial')
+
+
 class PlantillaListView(LoginRequiredMixin, PermisoCarnetMixin, ListView):
     model = Plantilla
     permiso = 'editar_plantillas'
