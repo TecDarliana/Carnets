@@ -175,6 +175,13 @@ a:hover {
   border-color: var(--color-primario);
 }
 
+/* Píldoras de modo (Desde base de datos / Manual) */
+.nav-pills .nav-link.active,
+.nav-pills .nav-link.show.active {
+  --bs-nav-pills-link-active-bg: var(--color-primario);
+  background-color: var(--color-primario) !important;
+}
+
 /* Tarjetas de resumen (Empleados) */
 .border-success {
   border-color: var(--color-acento) !important;

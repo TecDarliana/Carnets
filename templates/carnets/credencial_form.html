@@ -1,44 +1,56 @@
 {% extends 'base.html' %}
 {% block title %}Carnets{% endblock %}
 {% block content %}
-<h1 class="h3 mb-1"><i class="bi bi-person-vcard me-1"></i>Carnets</h1>
-<p class="text-muted mb-4">
-  Busca un funcionario por cédula para ver su carnet
-  {% if puede_crear %}o crea carnets nuevos{% endif %}.
-</p>
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h1 class="h3 mb-1"><i class="bi bi-person-vcard me-1"></i>Carnets</h1>
+    <p class="text-muted mb-4">
+      Busca un funcionario por cédula para ver su carnet
+      {% if puede_crear %}o crea carnets nuevos{% endif %}.
+    </p>
 
-{% if perms.carnets.crear_carnet_manual %}
-<ul class="nav nav-pills mb-3">
-  <li class="nav-item">
-    <a class="nav-link {% if origen != 'manual' %}active{% endif %}"
-       href="{% url 'carnets:credencial_crear' %}?origen=siglas">
-      <i class="bi bi-database me-1"></i>Desde base de datos
-    </a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link {% if origen == 'manual' %}active{% endif %}"
-       href="{% url 'carnets:credencial_crear' %}?origen=manual">
-      <i class="bi bi-person-lines-fill me-1"></i>Manual (fuera de la institución)
-    </a>
-  </li>
-</ul>
-{% endif %}
+    {% if perms.carnets.crear_carnet_manual %}
+    <ul class="nav nav-pills mb-3">
+      <li class="nav-item">
+        <a class="nav-link {% if origen != 'manual' %}active{% endif %}"
+           href="{% url 'carnets:credencial_crear' %}?origen=siglas">
+          <i class="bi bi-database me-1"></i>Desde base de datos
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link {% if origen == 'manual' %}active{% endif %}"
+           href="{% url 'carnets:credencial_crear' %}?origen=manual">
+          <i class="bi bi-person-lines-fill me-1"></i>Manual (fuera de la institución)
+        </a>
+      </li>
+    </ul>
+    {% endif %}
+
+    {% if origen != 'manual' %}
+      <form method="get" action="{% url 'carnets:lista' %}" class="mb-3">
+        <div class="input-group" style="max-width: 480px;">
+          <input type="text" name="q" value="{{ q }}" class="form-control"
+                 placeholder="Cédula del funcionario" inputmode="numeric" autofocus>
+          <button class="btn btn-primary" type="submit">
+            <i class="bi bi-search me-1"></i>Buscar
+          </button>
+        </div>
+      </form>
+
+      {% if error %}
+        <div class="alert alert-warning mb-0" style="max-width: 720px;">{{ error }}</div>
+      {% endif %}
+    {% else %}
+      <div class="alert alert-info mb-0" style="max-width: 720px;">
+        Carnet para una persona fuera de la institución (socio, contratista,
+        visitante, etc.). Ingresa los datos manualmente; todos los campos y la
+        foto son editables antes de imprimir.
+      </div>
+    {% endif %}
+  </div>
+</div>
 
 {% if origen != 'manual' %}
-  <form method="get" action="{% url 'carnets:lista' %}" class="mb-4">
-    <div class="input-group" style="max-width: 480px;">
-      <input type="text" name="q" value="{{ q }}" class="form-control"
-             placeholder="Cédula del funcionario" inputmode="numeric" autofocus>
-      <button class="btn btn-primary" type="submit">
-        <i class="bi bi-search me-1"></i>Buscar
-      </button>
-    </div>
-  </form>
-
-  {% if error %}
-    <div class="alert alert-warning" style="max-width: 720px;">{{ error }}</div>
-  {% endif %}
-
   {% if datos %}
     <div class="card shadow-sm" style="max-width: 720px;">
       <div class="card-body">
@@ -80,15 +92,9 @@
             <i class="bi bi-file-earmark-pdf me-1"></i>Descargar PDF
           </a>
         {% endif %}
-      </div>
-    </div>
+       </div>
+     </div>
   {% endif %}
-{% else %}
-  <div class="alert alert-info" style="max-width: 720px;">
-    Carnet para una persona fuera de la institución (socio, contratista,
-    visitante, etc.). Ingresa los datos manualmente; todos los campos y la
-    foto son editables antes de imprimir.
-  </div>
 {% endif %}
 
 {% if puede_crear %}
