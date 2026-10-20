@@ -1,0 +1,24 @@
+﻿name: Sincronizar Repositorios
+
+on:
+  push:
+    branches:
+      - main  # Cambia a "master" si tu rama principal se llama así
+
+jobs:
+  git-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código actual
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sincronizar hacia Fundayacucho
+        uses: WeiCleanHands/git-sync-action@v3
+        with:
+          source_repo: "TecDarliana/Carnets"
+          source_branch: "main"
+          destination_repo: "fundayacucho/carnets-bd-siglas"
+          destination_branch: "main"
+          destination_token: ${{ secrets.PAT_TOKEN }}
