@@ -3,8 +3,189 @@
   --carnet-secundario: #1d7874;
 }
 
+/* La paleta institucional vive en tokens_fundayacucho.css (DDS oficial MPPEU),
+   cargado antes que este archivo. Aquí solo se referencia: var(--color-primario),
+   var(--color-acento), etc. */
+
+/* ————— Diseño institucional ————— */
+
 body {
   min-height: 100vh;
+}
+
+.app-fondo {
+  background: url("../img/fondo.jpg") no-repeat center center fixed;
+  background-size: cover;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--color-texto);
+}
+
+/* Encabezado */
+.app-header {
+  background: #fff;
+  box-shadow: 0 2px 10px var(--color-sombra-primario);
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+}
+
+.app-logo {
+  height: clamp(40px, 5vw, 56px);
+  width: auto;
+  object-fit: contain;
+}
+
+.app-titulo {
+  color: var(--color-primario);
+}
+
+.app-separador {
+  border-color: rgba(0, 0, 0, .12) !important;
+}
+
+/* Menú principal */
+.app-nav {
+  background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-light) 100%);
+  box-shadow: 0 4px 14px var(--color-sombra-primario);
+}
+
+.app-nav .nav-link {
+  color: var(--color-texto-inverse);
+  white-space: nowrap;
+  border-radius: 2rem;
+  padding: .5rem 1.1rem;
+  font-weight: 600;
+  transition: background .25s, transform .25s;
+}
+
+.app-nav .nav-link:hover {
+  background: rgba(255, 255, 255, .18);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.app-nav .nav-link.active {
+  background: var(--color-acento-200);
+  border: 1px solid var(--color-acento);
+  color: #fff;
+}
+
+.app-nav .navbar-toggler {
+  border-color: rgba(255, 255, 255, .4);
+}
+
+.app-nav .navbar-toggler-icon {
+  filter: invert(1);
+}
+
+/* Franja tricolor bajo el menú (como el portal) */
+.franja-tricolor {
+  height: 3px;
+  background: linear-gradient(90deg,
+    #002b66 0% 33.33%, #cf2029 33.33% 66.66%, #fc0 66.66% 100%);
+}
+
+/* Contenido */
+.app-main {
+  flex: 1 0 auto;
+}
+
+.app-main h1,
+.app-main .h3 {
+  color: var(--color-primario);
+}
+
+/* Pie de página institucional */
+.app-footer {
+  background: linear-gradient(135deg, var(--color-primario-dark) 0%, var(--color-primario) 100%);
+  margin-top: 0;
+}
+
+.app-footer .footer-titulo {
+  color: var(--color-acento);
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+
+.app-footer .footer-link {
+  color: rgba(255, 255, 255, .75);
+  text-decoration: none;
+  display: inline-block;
+  padding: .15rem 0;
+  transition: color .2s, transform .2s;
+}
+
+.app-footer .footer-link:hover {
+  color: #fff;
+  transform: translateX(2px);
+}
+
+/* Acentos institucionales sobre Bootstrap 5.3 */
+.btn-primary {
+  --bs-btn-bg: var(--color-primario);
+  --bs-btn-border-color: var(--color-primario);
+  --bs-btn-hover-bg: var(--color-primario-light);
+  --bs-btn-hover-border-color: var(--color-primario-light);
+  --bs-btn-active-bg: var(--color-primario-dark);
+  --bs-btn-active-border-color: var(--color-primario-dark);
+  --bs-btn-disabled-bg: var(--color-primario);
+  --bs-btn-disabled-border-color: var(--color-primario);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--color-primario);
+  --bs-btn-border-color: var(--color-primario);
+  --bs-btn-hover-bg: var(--color-primario);
+  --bs-btn-hover-border-color: var(--color-primario);
+  --bs-btn-active-bg: var(--color-primario-dark);
+  --bs-btn-active-border-color: var(--color-primario-dark);
+  --bs-btn-disabled-color: var(--color-primario);
+  --bs-btn-disabled-border-color: var(--color-primario);
+}
+
+.text-primary {
+  color: var(--color-primario) !important;
+}
+
+.bg-primary {
+  background-color: var(--color-primario) !important;
+}
+
+a {
+  color: var(--color-primario);
+}
+
+a:hover {
+  color: var(--color-primario-light);
+}
+
+.card {
+  border-radius: .75rem;
+  box-shadow: var(--color-sombra-tarjeta);
+}
+
+.page-link {
+  color: var(--color-primario);
+}
+
+.page-item.active .page-link {
+  background-color: var(--color-primario);
+  border-color: var(--color-primario);
+}
+
+/* Tarjetas de resumen (Empleados) */
+.border-success {
+  border-color: var(--color-acento) !important;
+}
+
+.text-warning {
+  color: var(--color-acento) !important;
+}
+
+.border-warning {
+  border-color: var(--color-acento) !important;
 }
 
 .carnet {

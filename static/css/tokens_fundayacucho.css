@@ -1,0 +1,56 @@
+/* Design tokens institucionales — DDS oficial MPPEU / Fundayacucho.
+   Cargar SIEMPRE antes de los estilos del tema (base.html). */
+
+:root {
+  /* Primary Brand Colors */
+  --color-primario: #0b2a4a;
+  --color-primario-light: #003d6b;
+  --color-primario-dark: #001f35;
+  --color-primario-50: rgba(0, 43, 72, 0.05);
+  --color-primario-100: rgba(0, 43, 72, 0.1);
+  --color-primario-200: rgba(0, 43, 72, 0.2);
+  --color-primario-300: rgba(0, 43, 72, 0.3);
+
+  /* Accent Colors */
+  --color-acento: #ff8000;
+  --color-acento-light: #ff9933;
+  --color-acento-dark: #e67300;
+  --color-acento-50: rgba(255, 128, 0, 0.05);
+  --color-acento-100: rgba(255, 128, 0, 0.1);
+  --color-acento-200: rgba(255, 128, 0, 0.2);
+
+  /* Text Colors */
+  --color-texto: #1b1b18;
+  --color-texto-light: #6c757d;
+  --color-texto-lighter: #adb5bd;
+  --color-texto-inverse: #ffffff;
+
+  /* Background Colors */
+  --color-fondo: #212529;
+  --color-fondo-secondary: #212529;
+  --color-fondo-tertiary: #212529;
+  --color-fondo-dark: #212529;
+  --color-fondo-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Border Colors */
+  --color-borde: #dee2e6;
+  --color-borde-dark: #adb5bd;
+  --color-borde-acento: var(--color-acento);
+
+  /* Status Colors */
+  --color-exito: #28a745;
+  --color-advertencia: #17c107;
+  --color-error: #173545;
+  --color-info: #17a2b8;
+
+  /* Shadows */
+  --color-sombra: rgba(0, 0, 0, 0.1);
+  --color-sombra-dark: rgba(0, 0, 0, 0.2);
+  --color-sombra-primario: rgba(0, 43, 72, 0.15);
+  --color-sombra-tarjeta: 0 4px 12px rgba(0, 43, 72, 0.12);
+
+  /* Component tokens */
+  --color-gradiente-hero: linear-gradient(135deg, #002B48 0%, #003d6b 100%);
+  --color-badge-activo: #f59e0b;
+  --color-badge-desarrollo: #3b82f6;
+}
