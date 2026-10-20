@@ -51,11 +51,11 @@
 </div>
 
 <form class="row g-2 mb-3" method="get">
-  <div class="col-12 col-md-6">
+  <div class="col-12 col-md-4">
     <input type="search" name="q" value="{{ q }}" class="form-control"
            placeholder="Buscar por nombre, cédula o cargo">
   </div>
-  <div class="col-8 col-md-3">
+  <div class="col-6 col-md-2">
     <select name="departamento" class="form-select">
       <option value="">Todos los departamentos</option>
       {% for dep in departamentos %}
@@ -63,7 +63,22 @@
       {% endfor %}
     </select>
   </div>
-  <div class="col-4 col-md-3 d-grid">
+  <div class="col-6 col-md-3">
+    <select name="cargo" class="form-select">
+      <option value="">Todos (jubilados, pensionados y empleados)</option>
+      <option value="jubilados" {% if cargo == 'jubilados' %}selected{% endif %}>Jubilados</option>
+      <option value="pensionados" {% if cargo == 'pensionados' %}selected{% endif %}>Pensionados</option>
+      <option value="empleados" {% if cargo == 'empleados' %}selected{% endif %}>Empleados</option>
+    </select>
+  </div>
+  <div class="col-6 col-md-2">
+    <select name="carnet" class="form-select">
+      <option value="">Carnet: todos</option>
+      <option value="hecho" {% if carnet == 'hecho' %}selected{% endif %}>Carnet hecho</option>
+      <option value="no_hecho" {% if carnet == 'no_hecho' %}selected{% endif %}>Carnet no hecho</option>
+    </select>
+  </div>
+  <div class="col-6 col-md-1 d-grid">
     <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
   </div>
 </form>
@@ -131,11 +146,11 @@
   <nav class="mt-3">
     <ul class="pagination justify-content-center">
       {% if page_obj.has_previous %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&departamento={{ departamento }}">Anterior</a></li>
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&departamento={{ departamento }}&cargo={{ cargo }}&carnet={{ carnet }}">Anterior</a></li>
       {% endif %}
       <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
       {% if page_obj.has_next %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&departamento={{ departamento }}">Siguiente</a></li>
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&departamento={{ departamento }}&cargo={{ cargo }}&carnet={{ carnet }}">Siguiente</a></li>
       {% endif %}
     </ul>
   </nav>
