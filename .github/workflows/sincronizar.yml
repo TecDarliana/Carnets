@@ -1,9 +1,10 @@
-﻿name: Sincronizar Repositorios
+name: Sincronizar Repositorios
 
 on:
   push:
     branches:
-      - main  # Cambia a "master" si tu rama principal se llama así
+      - main
+  workflow_dispatch: # Permite ejecutarlo manualmente desde la pestaña Actions
 
 jobs:
   git-sync:
@@ -15,10 +16,8 @@ jobs:
           fetch-depth: 0
 
       - name: Sincronizar hacia Fundayacucho
-        uses: WeiCleanHands/git-sync-action@v3
-        with:
-          source_repo: "TecDarliana/Carnets"
-          source_branch: "main"
-          destination_repo: "fundayacucho/carnets-bd-siglas"
-          destination_branch: "main"
-          destination_token: ${{ secrets.PAT_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add destino "https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/fundayacucho/carnets-bd-siglas.git"
+          git push destino main:main
